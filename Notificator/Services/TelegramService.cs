@@ -9,7 +9,6 @@ namespace Notificator.Services;
 
 public class TelegramService : IDisposable
 {
-    public const string DefaultBotToken = "8625979759:AAFVY-iYHJF7-jTpJCcKF_0s9kSYdWYd6bo";
     public const string BotUsername = "@FF14_Notif_bot";
     
     private readonly HttpClient _httpClient;
@@ -26,11 +25,6 @@ public class TelegramService : IDisposable
             Timeout = TimeSpan.FromSeconds(10)
         };
         
-        if (string.IsNullOrWhiteSpace(_config.TelegramBotToken))
-        {
-            _config.TelegramBotToken = DefaultBotToken;
-            _config.Save();
-        }
     }
 
     public bool IsConfigured => 

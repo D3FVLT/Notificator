@@ -103,7 +103,7 @@ public class NotificationTracker : IDisposable
         _chatGui.ChatMessage -= OnChatMessage;
     }
 
-    private void OnChatMessage(XivChatType type, int senderId, SeString sender, SeString message)
+    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
     {
         if (!_config.Notifications.OnPrivateMessage) return;
         

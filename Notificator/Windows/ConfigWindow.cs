@@ -79,9 +79,10 @@ public class ConfigWindow : Window, IDisposable
     private void DrawTelegramTab()
     {
         ImGui.TextColored(new Vector4(0.4f, 0.8f, 1f, 1f), "Quick Setup:");
-        ImGui.TextWrapped($"1. Open Telegram and find {TelegramService.BotUsername}");
-        ImGui.TextWrapped("2. Send /start to the bot");
-        ImGui.TextWrapped("3. Click 'Auto-detect Chat ID' below");
+        ImGui.TextWrapped("1. Create a bot via @BotFather in Telegram and copy the token");
+        ImGui.TextWrapped("2. Paste the token below");
+        ImGui.TextWrapped("3. Send /start to your bot");
+        ImGui.TextWrapped("4. Click 'Auto-detect' to get your Chat ID");
         
         ImGui.Spacing();
         ImGui.Separator();
@@ -94,7 +95,7 @@ public class ConfigWindow : Window, IDisposable
             _config.TelegramBotToken = _botToken;
             _config.Save();
         }
-        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Pre-filled with default bot. You can use your own.");
+        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Get from @BotFather on Telegram");
 
         ImGui.Spacing();
 
