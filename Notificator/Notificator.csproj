@@ -1,10 +1,52 @@
-<Project Sdk="Dalamud.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <TargetFramework>net8.0-windows8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
     <Version>1.0.0.0</Version>
     <Authors>D3FVLT</Authors>
     <Description>Telegram notification plugin for FFXIV events</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)</OutputPath>
+    <NoWarn>CS8618;CS8625</NoWarn>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <DalamudLibPath>$(DALAMUD_HOME)\</DalamudLibPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DalamudPackager" Version="14.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Dalamud">
+      <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="ImGui.NET">
+      <HintPath>$(DalamudLibPath)ImGui.NET.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lumina">
+      <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Lumina.Excel">
+      <HintPath>$(DalamudLibPath)Lumina.Excel.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="FFXIVClientStructs">
+      <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
 
 </Project>

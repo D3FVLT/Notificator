@@ -35,19 +35,16 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore
 
-      - name: Prepare Release
-        run: |
-          mkdir -p release/${{ env.PLUGIN_NAME }}
-          cp ${{ env.PLUGIN_NAME }}/bin/x64/Release/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_NAME }}.dll release/${{ env.PLUGIN_NAME }}/
-          cp ${{ env.PLUGIN_NAME }}/bin/x64/Release/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_NAME }}.json release/${{ env.PLUGIN_NAME }}/
-          cd release
-          zip -r ${{ env.PLUGIN_NAME }}.zip ${{ env.PLUGIN_NAME }}
-
       - name: Get version
         id: version
         run: |
           version=$(grep -oP '(?<=<Version>)[^<]+' ${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_NAME }}.csproj)
           echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Prepare Release
+        run: |
+          mkdir -p release
+          cp ${{ env.PLUGIN_NAME }}/bin/Release/latest.zip release/${{ env.PLUGIN_NAME }}.zip
 
       - name: Generate pluginmaster.json
         run: |
