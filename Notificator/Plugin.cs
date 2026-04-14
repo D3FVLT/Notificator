@@ -85,6 +85,7 @@ public sealed class Plugin : IDalamudPlugin
 
         _lastPeriodicCheck = now;
 
+        _tracker.UpdateCurrentInfo();
         _tracker.CheckCommendations();
         _tracker.CheckGCRank();
         _tracker.CheckDeath();

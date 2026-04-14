@@ -24,22 +24,17 @@ public class NotificationTracker : IDisposable
     private short _lastLevel;
     private short _lastCommendations;
     private byte _lastGCRank;
-    private readonly Dictionary<uint, long> _lastCurrencyValues = new();
+    private readonly Dictionary<string, long> _lastCurrencyValues = new();
     private bool _wasInCombat;
+    private bool _currencyIdsResolved;
 
-    // Tomestone item IDs change with patches; we resolve them dynamically from TomestonesItem sheet
+    // Resolved tomestone item IDs (from Lumina Item sheet)
     private uint _poeticsItemId;
     private uint _mathematicsItemId;
     private uint _mnemonicsItemId;
-    private uint _mgpItemId;
 
-    // Current values exposed for UI
-    public long CurrentGil { get; private set; }
-    public long CurrentPoetics { get; private set; }
-    public long CurrentMathematics { get; private set; }
-    public long CurrentMnemonics { get; private set; }
-    public long CurrentCompanySeals { get; private set; }
-    public long CurrentMGP { get; private set; }
+    // All currency values exposed for UI, keyed by display name
+    public Dictionary<string, long> CurrentCurrencies { get; } = new();
     public short CurrentLevel { get; private set; }
     public string CurrentClassJob { get; private set; } = string.Empty;
     public string CurrentZone { get; private set; } = string.Empty;
@@ -66,48 +61,8 @@ public class NotificationTracker : IDisposable
         _dataManager = dataManager;
         _chatGui = chatGui;
 
-        ResolveCurrencyIds();
         SubscribeToEvents();
         InitializeTracking();
-    }
-
-    private void ResolveCurrencyIds()
-    {
-        // Scan SpecialItemBucket to find currency item IDs by matching names
-        // We do this once to avoid hardcoding IDs that change between patches
-        _poeticsItemId = 0;
-        _mathematicsItemId = 0;
-        _mnemonicsItemId = 0;
-        _mgpItemId = 0;
-
-        try
-        {
-            var itemSheet = _dataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>();
-            if (itemSheet == null) return;
-
-            unsafe
-            {
-                var cm = CurrencyManager.Instance();
-                if (cm == null) return;
-
-                foreach (var (itemId, _) in cm->SpecialItemBucket)
-                {
-                    var item = itemSheet.GetRow(itemId);
-                    var name = item.Name.ToString().ToLowerInvariant();
-                    
-                    if (name.Contains("poetics")) _poeticsItemId = itemId;
-                    else if (name.Contains("mathematics")) _mathematicsItemId = itemId;
-                    else if (name.Contains("mnemonics")) _mnemonicsItemId = itemId;
-                    else if (name.Contains("gold saucer") || name.Contains("mgp")) _mgpItemId = itemId;
-                }
-            }
-            
-            _log.Debug($"Currency IDs resolved: Poetics={_poeticsItemId}, Math={_mathematicsItemId}, Mnem={_mnemonicsItemId}, MGP={_mgpItemId}");
-        }
-        catch (Exception ex)
-        {
-            _log.Error($"Failed to resolve currency IDs: {ex.Message}");
-        }
     }
 
     private void InitializeTracking()
@@ -122,8 +77,37 @@ public class NotificationTracker : IDisposable
             {
                 _lastGCRank = _playerState.GetGrandCompanyRank(_playerState.GrandCompany.Value);
             }
-            UpdateCurrencySnapshot();
-            UpdateCurrentInfo();
+        }
+    }
+
+    private void ResolveTomestoneIds()
+    {
+        if (_currencyIdsResolved) return;
+
+        try
+        {
+            var itemSheet = _dataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>();
+            if (itemSheet == null) return;
+
+            foreach (var item in itemSheet)
+            {
+                var name = item.Name.ToString();
+                if (string.IsNullOrEmpty(name)) continue;
+
+                var nameLower = name.ToLowerInvariant();
+                if (!nameLower.Contains("allagan tomestone")) continue;
+
+                if (nameLower.Contains("poetics")) _poeticsItemId = item.RowId;
+                else if (nameLower.Contains("mathematics")) _mathematicsItemId = item.RowId;
+                else if (nameLower.Contains("mnemonics")) _mnemonicsItemId = item.RowId;
+            }
+
+            _log.Debug($"Tomestone IDs: Poetics={_poeticsItemId}, Math={_mathematicsItemId}, Mnem={_mnemonicsItemId}");
+            _currencyIdsResolved = true;
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"Failed to resolve tomestone IDs: {ex.Message}");
         }
     }
 
@@ -251,76 +235,175 @@ public class NotificationTracker : IDisposable
     {
         if (!_playerState.IsLoaded) return;
 
-        var currencyManager = CurrencyManager.Instance();
-        if (currencyManager == null) return;
+        ResolveTomestoneIds();
 
-        if (_poeticsItemId == 0) ResolveCurrencyIds();
-        
-        CurrentGil = GetCurrencyAmount(1);
-        CurrentPoetics = _poeticsItemId > 0 ? GetCurrencyByItemId(_poeticsItemId) : 0;
-        CurrentMathematics = _mathematicsItemId > 0 ? GetCurrencyByItemId(_mathematicsItemId) : 0;
-        CurrentMnemonics = _mnemonicsItemId > 0 ? GetCurrencyByItemId(_mnemonicsItemId) : 0;
-        CurrentMGP = _mgpItemId > 0 ? GetCurrencyByItemId(_mgpItemId) : GetCurrencyAmount(29);
+        var im = InventoryManager.Instance();
+        if (im == null) return;
 
-        var gcId = GetGrandCompanySealId();
-        if (gcId > 0) CurrentCompanySeals = GetCurrencyByItemId(gcId);
+        // InventoryManager-tracked currencies (Gil, GC Seals, MGP, Tomestones)
+        CurrentCurrencies["Gil"] = im->GetInventoryItemCount(1);
 
-        if (_config.Notifications.OnGilThreshold)
+        if (_poeticsItemId > 0)
+            CurrentCurrencies["Poetics"] = im->GetInventoryItemCount(_poeticsItemId);
+        if (_mathematicsItemId > 0)
+            CurrentCurrencies["Mathematics"] = im->GetInventoryItemCount(_mathematicsItemId);
+        if (_mnemonicsItemId > 0)
+            CurrentCurrencies["Mnemonics"] = im->GetInventoryItemCount(_mnemonicsItemId);
+
+        CurrentCurrencies["MGP"] = im->GetInventoryItemCount(29);
+
+        var gcSealId = GetGrandCompanySealId();
+        if (gcSealId > 0)
+            CurrentCurrencies["Company Seals"] = im->GetInventoryItemCount(gcSealId);
+
+        // CurrencyManager-tracked currencies (scrips, beast tribe tokens, island, etc.)
+        var cm = CurrencyManager.Instance();
+        if (cm != null)
         {
-            if (ShouldNotifyThreshold(1, CurrentGil, _config.Notifications.GilThreshold))
+            var itemSheet = _dataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>();
+            if (itemSheet != null)
             {
-                _config.AddLog($"Gil threshold: {CurrentGil:N0}");
-                _ = _telegram.SendMessageAsync($"💰 <b>Gil Threshold Reached!</b>\nCurrent: {CurrentGil:N0} gil");
+                ScanBucketSpecial(cm, itemSheet);
+                ScanBucketItem(cm, itemSheet);
+                ScanBucketContent(cm, itemSheet);
             }
         }
 
-        if (_config.Notifications.OnPoeticsThreshold && _poeticsItemId > 0)
+        // Check configured thresholds
+        CheckThreshold("Gil", _config.Notifications.OnGilThreshold, _config.Notifications.GilThreshold, "💰", "Gil");
+        CheckThreshold("Poetics", _config.Notifications.OnPoeticsThreshold, _config.Notifications.PoeticsThreshold, "📀", "Poetics");
+        CheckThreshold("Mathematics", _config.Notifications.OnMathematicsThreshold, _config.Notifications.MathematicsThreshold, "📀", "Mathematics");
+        CheckThreshold("Mnemonics", _config.Notifications.OnMnemonicsThreshold, _config.Notifications.MnemonicsThreshold, "📀", "Mnemonics");
+        CheckThreshold("Company Seals", _config.Notifications.OnCompanySealsThreshold, _config.Notifications.CompanySealsThreshold, "🎖️", "Company Seals");
+        CheckThreshold("MGP", _config.Notifications.OnMGPThreshold, _config.Notifications.MGPThreshold, "🎰", "MGP");
+
+        foreach (var (name, amount) in CurrentCurrencies)
+            _lastCurrencyValues[name] = amount;
+    }
+
+    private unsafe void ScanBucketSpecial(CurrencyManager* cm,
+        Lumina.Excel.ExcelSheet<Lumina.Excel.Sheets.Item> itemSheet)
+    {
+        foreach (var (itemId, item) in cm->SpecialItemBucket)
         {
-            if (ShouldNotifyThreshold(_poeticsItemId, CurrentPoetics, _config.Notifications.PoeticsThreshold))
-            {
-                _config.AddLog($"Poetics threshold: {CurrentPoetics:N0}");
-                _ = _telegram.SendMessageAsync($"📀 <b>Poetics Threshold!</b>\nCurrent: {CurrentPoetics:N0}/2000");
-            }
+            var name = ResolveCurrencyDisplayName(itemId, itemSheet);
+            if (name != null)
+                CurrentCurrencies[name] = item.Count;
+        }
+    }
+
+    private unsafe void ScanBucketItem(CurrencyManager* cm,
+        Lumina.Excel.ExcelSheet<Lumina.Excel.Sheets.Item> itemSheet)
+    {
+        foreach (var (itemId, item) in cm->ItemBucket)
+        {
+            var name = ResolveCurrencyDisplayName(itemId, itemSheet);
+            if (name != null)
+                CurrentCurrencies[name] = item.Count;
+        }
+    }
+
+    private unsafe void ScanBucketContent(CurrencyManager* cm,
+        Lumina.Excel.ExcelSheet<Lumina.Excel.Sheets.Item> itemSheet)
+    {
+        foreach (var (itemId, item) in cm->ContentItemBucket)
+        {
+            var name = ResolveCurrencyDisplayName(itemId, itemSheet);
+            if (name != null)
+                CurrentCurrencies[name] = item.Count;
+        }
+    }
+
+    private static readonly Dictionary<string, string> CurrencyNameMap = new()
+    {
+        // Scrips
+        { "white crafters' scrip", "White Crafters' Scrip" },
+        { "white gatherers' scrip", "White Gatherers' Scrip" },
+        { "purple crafters' scrip", "Purple Crafters' Scrip" },
+        { "purple gatherers' scrip", "Purple Gatherers' Scrip" },
+        { "orange crafters' scrip", "Orange Crafters' Scrip" },
+        { "orange gatherers' scrip", "Orange Gatherers' Scrip" },
+        // PvP
+        { "wolf mark", "Wolf Marks" },
+        { "trophy crystal", "Trophy Crystals" },
+        // Hunt
+        { "allied seal", "Allied Seals" },
+        { "centurio seal", "Centurio Seals" },
+        { "sack of nuts", "Sack of Nuts" },
+        // Exploration
+        { "bicolor gemstone", "Bicolor Gemstones" },
+        { "skybuilders' scrip", "Skybuilders' Scrip" },
+        // Occult Crescent
+        { "enlightenment silver", "Enlightenment Silver Pieces" },
+        { "enlightenment gold", "Enlightenment Gold Pieces" },
+        // Eureka/Bozja
+        { "bozjan cluster", "Bozjan Clusters" },
+        // Island Sanctuary
+        { "seafarer's cowrie", "Seafarer's Cowrie" },
+        { "islander's cowrie", "Islander's Cowrie" },
+        // Other notable
+        { "venture", "Ventures" },
+        { "faux leaf", "Faux Leaves" },
+        { "mgf", "MGF" },
+        { "felicitous token", "Felicitous Tokens" },
+    };
+
+    private string? ResolveCurrencyDisplayName(uint itemId,
+        Lumina.Excel.ExcelSheet<Lumina.Excel.Sheets.Item> itemSheet)
+    {
+        var itemData = itemSheet.GetRow(itemId);
+        var rawName = itemData.Name.ToString();
+        if (string.IsNullOrEmpty(rawName)) return null;
+
+        var lower = rawName.ToLowerInvariant();
+
+        // Skip island sanctuary raw materials, farm items, and crafting tools
+        if (lower.StartsWith("island ") || lower.StartsWith("isle") || lower.StartsWith("sanctuary ") ||
+            lower.StartsWith("makeshift ") || lower.StartsWith("flawless ") || lower.StartsWith("raw island") ||
+            lower.StartsWith("multicolored") || lower.StartsWith("premium island"))
+        {
+            if (!lower.Contains("cowrie"))
+                return null;
         }
 
-        if (_config.Notifications.OnMathematicsThreshold && _mathematicsItemId > 0)
+        foreach (var (fragment, displayName) in CurrencyNameMap)
         {
-            if (ShouldNotifyThreshold(_mathematicsItemId, CurrentMathematics, _config.Notifications.MathematicsThreshold))
-            {
-                _config.AddLog($"Mathematics threshold: {CurrentMathematics:N0}");
-                _ = _telegram.SendMessageAsync($"📀 <b>Mathematics Threshold!</b>\nCurrent: {CurrentMathematics:N0}");
-            }
+            if (lower.Contains(fragment))
+                return displayName;
         }
 
-        if (_config.Notifications.OnMnemonicsThreshold && _mnemonicsItemId > 0)
+        // Show unmapped currencies with their raw name
+        return rawName;
+    }
+
+    private void CheckThreshold(string currencyName, bool enabled, long threshold, string emoji, string label)
+    {
+        if (!enabled) return;
+        if (!CurrentCurrencies.TryGetValue(currencyName, out var current)) return;
+
+        if (!_lastCurrencyValues.TryGetValue(currencyName, out var last))
         {
-            if (ShouldNotifyThreshold(_mnemonicsItemId, CurrentMnemonics, _config.Notifications.MnemonicsThreshold))
-            {
-                _config.AddLog($"Mnemonics threshold: {CurrentMnemonics:N0}");
-                _ = _telegram.SendMessageAsync($"📀 <b>Mnemonics Threshold!</b>\nCurrent: {CurrentMnemonics:N0}/2000");
-            }
+            _lastCurrencyValues[currencyName] = current;
+            return;
         }
 
-        if (_config.Notifications.OnCompanySealsThreshold && gcId > 0)
+        if (last < threshold && current >= threshold)
         {
-            if (ShouldNotifyThreshold(gcId, CurrentCompanySeals, _config.Notifications.CompanySealsThreshold))
-            {
-                _config.AddLog($"Seals threshold: {CurrentCompanySeals:N0}");
-                _ = _telegram.SendMessageAsync($"🎖️ <b>Company Seals Threshold!</b>\nCurrent: {CurrentCompanySeals:N0}");
-            }
+            _config.AddLog($"{label} threshold: {current:N0}");
+            _ = _telegram.SendMessageAsync($"{emoji} <b>{label} Threshold!</b>\nCurrent: {current:N0}");
         }
+    }
 
-        if (_config.Notifications.OnMGPThreshold)
+    private uint GetGrandCompanySealId()
+    {
+        if (!_playerState.GrandCompany.IsValid) return 0;
+        return _playerState.GrandCompany.RowId switch
         {
-            var mgpKey = _mgpItemId > 0 ? _mgpItemId : 29u;
-            if (ShouldNotifyThreshold(mgpKey, CurrentMGP, _config.Notifications.MGPThreshold))
-            {
-                _config.AddLog($"MGP threshold: {CurrentMGP:N0}");
-                _ = _telegram.SendMessageAsync($"🎰 <b>MGP Threshold Reached!</b>\nCurrent: {CurrentMGP:N0}");
-            }
-        }
-
-        UpdateCurrencySnapshot();
+            1 => 20,  // Storm Seals
+            2 => 21,  // Serpent Seals
+            3 => 22,  // Flame Seals
+            _ => 0
+        };
     }
 
     public void UpdateCurrentInfo()
@@ -336,77 +419,6 @@ public class NotificationTracker : IDisposable
             var territory = _dataManager.GetExcelSheet<TerritoryType>()?.GetRow(territoryId);
             CurrentZone = territory?.PlaceName.ValueNullable?.Name.ToString() ?? $"Zone {territoryId}";
         }
-    }
-
-    private bool ShouldNotifyThreshold(uint currencyId, long currentAmount, long threshold)
-    {
-        if (!_lastCurrencyValues.TryGetValue(currencyId, out var lastAmount))
-        {
-            _lastCurrencyValues[currencyId] = currentAmount;
-            return false;
-        }
-
-        return lastAmount < threshold && currentAmount >= threshold;
-    }
-
-    private unsafe long GetCurrencyAmount(uint itemId)
-    {
-        var inventoryManager = InventoryManager.Instance();
-        if (inventoryManager == null) return 0;
-        return inventoryManager->GetInventoryItemCount(itemId);
-    }
-
-    private unsafe long GetCurrencyByItemId(uint targetItemId)
-    {
-        var currencyManager = CurrencyManager.Instance();
-        if (currencyManager == null) return 0;
-
-        foreach (var (itemId, item) in currencyManager->SpecialItemBucket)
-        {
-            if (itemId == targetItemId)
-                return item.Count;
-        }
-
-        foreach (var (itemId, item) in currencyManager->ItemBucket)
-        {
-            if (itemId == targetItemId)
-                return item.Count;
-        }
-
-        foreach (var (itemId, item) in currencyManager->ContentItemBucket)
-        {
-            if (itemId == targetItemId)
-                return item.Count;
-        }
-
-        return 0;
-    }
-
-    private uint GetGrandCompanySealId()
-    {
-        if (!_playerState.GrandCompany.IsValid) return 0;
-        // Storm/Serpent/Flame Seals item IDs
-        return _playerState.GrandCompany.RowId switch
-        {
-            1 => 20,  // Storm Seals
-            2 => 21,  // Serpent Seals
-            3 => 22,  // Flame Seals
-            _ => 0
-        };
-    }
-
-    private void UpdateCurrencySnapshot()
-    {
-        _lastCurrencyValues[1] = CurrentGil;
-        if (_poeticsItemId > 0) _lastCurrencyValues[_poeticsItemId] = CurrentPoetics;
-        if (_mathematicsItemId > 0) _lastCurrencyValues[_mathematicsItemId] = CurrentMathematics;
-        if (_mnemonicsItemId > 0) _lastCurrencyValues[_mnemonicsItemId] = CurrentMnemonics;
-        
-        var gcId = GetGrandCompanySealId();
-        if (gcId > 0) _lastCurrencyValues[gcId] = CurrentCompanySeals;
-        
-        var mgpKey = _mgpItemId > 0 ? _mgpItemId : 29u;
-        _lastCurrencyValues[mgpKey] = CurrentMGP;
     }
 
     public void CheckCommendations()

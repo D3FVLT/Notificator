@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
@@ -169,6 +170,9 @@ public class ConfigWindow : Window, IDisposable
             DrawStatusRow("Class/Job", _tracker.CurrentClassJob, $"Lv. {_tracker.CurrentLevel}");
             DrawStatusRow("Zone", _tracker.CurrentZone, "");
             DrawStatusRow("Commendations", _tracker.CurrentCommendations.ToString(), "");
+            
+            if (_tracker.CurrentCurrencies.TryGetValue("Gil", out var gil))
+                DrawStatusRow("Gil", $"{gil:N0}", "");
         });
 
         ImGui.Spacing();
@@ -346,30 +350,51 @@ public class ConfigWindow : Window, IDisposable
     private void DrawCurrencies()
     {
         var n = _config.Notifications;
+        var c = _tracker.CurrentCurrencies;
 
-        DrawCurrencyRow("Gil", _tracker.CurrentGil, -1, n.OnGilThreshold, n.GilThreshold, 100000,
+        long GetCur(string key) => c.TryGetValue(key, out var v) ? v : 0;
+
+        DrawCurrencyRow("Gil", GetCur("Gil"), -1, n.OnGilThreshold, n.GilThreshold, 100000,
             (e, t) => { n.OnGilThreshold = e; n.GilThreshold = t; });
 
         ImGui.Spacing();
         ImGui.TextColored(ColorBlue, "Tomestones");
 
-        DrawCurrencyRow("Poetics", _tracker.CurrentPoetics, 2000, n.OnPoeticsThreshold, n.PoeticsThreshold, 100,
+        DrawCurrencyRow("Poetics", GetCur("Poetics"), 2000, n.OnPoeticsThreshold, n.PoeticsThreshold, 100,
             (e, t) => { n.OnPoeticsThreshold = e; n.PoeticsThreshold = (int)t; });
 
-        DrawCurrencyRow("Mathematics", _tracker.CurrentMathematics, 2000, n.OnMathematicsThreshold, n.MathematicsThreshold, 100,
+        DrawCurrencyRow("Mathematics", GetCur("Mathematics"), 2000, n.OnMathematicsThreshold, n.MathematicsThreshold, 100,
             (e, t) => { n.OnMathematicsThreshold = e; n.MathematicsThreshold = (int)t; });
 
-        DrawCurrencyRow("Mnemonics", _tracker.CurrentMnemonics, 2000, n.OnMnemonicsThreshold, n.MnemonicsThreshold, 100,
+        DrawCurrencyRow("Mnemonics", GetCur("Mnemonics"), 2000, n.OnMnemonicsThreshold, n.MnemonicsThreshold, 100,
             (e, t) => { n.OnMnemonicsThreshold = e; n.MnemonicsThreshold = (int)t; });
 
         ImGui.Spacing();
         ImGui.TextColored(ColorBlue, "Other");
 
-        DrawCurrencyRow("Company Seals", _tracker.CurrentCompanySeals, 90000, n.OnCompanySealsThreshold, n.CompanySealsThreshold, 10000,
+        DrawCurrencyRow("Company Seals", GetCur("Company Seals"), 90000, n.OnCompanySealsThreshold, n.CompanySealsThreshold, 10000,
             (e, t) => { n.OnCompanySealsThreshold = e; n.CompanySealsThreshold = (int)t; });
 
-        DrawCurrencyRow("MGP", _tracker.CurrentMGP, -1, n.OnMGPThreshold, n.MGPThreshold, 10000,
+        DrawCurrencyRow("MGP", GetCur("MGP"), -1, n.OnMGPThreshold, n.MGPThreshold, 10000,
             (e, t) => { n.OnMGPThreshold = e; n.MGPThreshold = (int)t; });
+
+        // Show all other detected currencies (read-only)
+        var shown = new HashSet<string> { "Gil", "Poetics", "Mathematics", "Mnemonics", "Company Seals", "MGP" };
+        var others = new List<KeyValuePair<string, long>>();
+        foreach (var kv in c)
+        {
+            if (!shown.Contains(kv.Key)) others.Add(kv);
+        }
+
+        if (others.Count > 0)
+        {
+            ImGui.Spacing();
+            ImGui.TextColored(ColorBlue, "Detected Currencies");
+            foreach (var kv in others)
+            {
+                ImGui.TextColored(ColorGray, $"  {kv.Key}: {kv.Value:N0}");
+            }
+        }
     }
 
     private void DrawCurrencyRow(string name, long current, long cap,
