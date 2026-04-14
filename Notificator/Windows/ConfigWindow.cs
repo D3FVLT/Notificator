@@ -17,13 +17,14 @@ public class ConfigWindow : Window, IDisposable
     private string _testResult = string.Empty;
 
     public ConfigWindow(Configuration config, TelegramService telegram)
-        : base("Notificator Settings##NotificatorConfig", ImGuiWindowFlags.NoResize)
+        : base("Notificator Settings##NotificatorConfig")
     {
         _config = config;
         _telegram = telegram;
 
         Size = new Vector2(500, 600);
         SizeCondition = ImGuiCond.FirstUseEver;
+        Flags = ImGuiWindowFlags.NoResize;
 
         _botToken = config.TelegramBotToken;
         _chatId = config.TelegramChatId;
@@ -102,28 +103,27 @@ public class ConfigWindow : Window, IDisposable
         
         if (!isConfigured)
         {
-            ImGui.TextColored(new Vector4(1f, 0.5f, 0f, 1f), "⚠ Telegram not configured");
+            ImGui.TextColored(new Vector4(1f, 0.5f, 0f, 1f), "Telegram not configured");
         }
         else
         {
-            ImGui.TextColored(new Vector4(0f, 1f, 0f, 1f), "✓ Telegram configured");
+            ImGui.TextColored(new Vector4(0f, 1f, 0f, 1f), "Telegram configured");
         }
 
         ImGui.Spacing();
 
-        using (var _ = new ImGuiDisabledScope(!isConfigured || _testInProgress))
+        ImGui.BeginDisabled(!isConfigured || _testInProgress);
+        if (ImGui.Button(_testInProgress ? "Testing..." : "Test Connection"))
         {
-            if (ImGui.Button(_testInProgress ? "Testing..." : "Test Connection"))
-            {
-                TestConnection();
-            }
+            TestConnection();
         }
+        ImGui.EndDisabled();
 
         if (!string.IsNullOrEmpty(_testResult))
         {
             ImGui.SameLine();
             ImGui.TextColored(
-                _testResult.StartsWith("✓") ? new Vector4(0f, 1f, 0f, 1f) : new Vector4(1f, 0f, 0f, 1f),
+                _testResult.StartsWith("Success") ? new Vector4(0f, 1f, 0f, 1f) : new Vector4(1f, 0f, 0f, 1f),
                 _testResult);
         }
     }
@@ -380,11 +380,11 @@ public class ConfigWindow : Window, IDisposable
         try
         {
             var success = await _telegram.TestConnectionAsync();
-            _testResult = success ? "✓ Success!" : "✗ Failed";
+            _testResult = success ? "Success!" : "Failed";
         }
         catch (Exception ex)
         {
-            _testResult = $"✗ Error: {ex.Message}";
+            _testResult = $"Error: {ex.Message}";
         }
         finally
         {
@@ -393,22 +393,4 @@ public class ConfigWindow : Window, IDisposable
     }
 
     public void Dispose() { }
-}
-
-public readonly struct ImGuiDisabledScope : IDisposable
-{
-    private readonly bool _disabled;
-
-    public ImGuiDisabledScope(bool disabled)
-    {
-        _disabled = disabled;
-        if (_disabled)
-            ImGui.BeginDisabled();
-    }
-
-    public void Dispose()
-    {
-        if (_disabled)
-            ImGui.EndDisabled();
-    }
 }

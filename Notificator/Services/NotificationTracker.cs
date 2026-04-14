@@ -89,7 +89,7 @@ public class NotificationTracker : IDisposable
         _dutyState.DutyWiped -= OnDutyWiped;
     }
 
-    private void OnLogin(object? sender, EventArgs e)
+    private void OnLogin()
     {
         InitializeTracking();
         if (_config.Notifications.OnLogin && _playerState.IsLoaded)
@@ -100,7 +100,7 @@ public class NotificationTracker : IDisposable
         }
     }
 
-    private void OnLogout(object? sender, int type)
+    private void OnLogout(int type, int code)
     {
         if (_config.Notifications.OnLogout)
         {
@@ -108,7 +108,7 @@ public class NotificationTracker : IDisposable
         }
     }
 
-    private void OnLevelChanged(uint classJobId)
+    private void OnLevelChanged(uint classJobId, uint level)
     {
         if (!_config.Notifications.OnLevelUp || !_playerState.IsLoaded) return;
 

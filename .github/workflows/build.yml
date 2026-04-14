@@ -26,7 +26,7 @@ jobs:
       - name: Download Dalamud
         run: |
           mkdir -p $DALAMUD_HOME
-          curl -L https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -o dalamud.zip
+          curl -L https://goatcorp.github.io/dalamud-distrib/latest.zip -o dalamud.zip
           unzip dalamud.zip -d $DALAMUD_HOME
 
       - name: Restore
