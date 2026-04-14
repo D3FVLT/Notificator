@@ -1,0 +1,9 @@
+<Project Sdk="Dalamud.NET.Sdk/14.0.4">
+
+  <PropertyGroup>
+    <Version>1.0.0.0</Version>
+    <Authors>D3FVLT</Authors>
+    <Description>Telegram notification plugin for FFXIV events</Description>
+  </PropertyGroup>
+
+</Project>

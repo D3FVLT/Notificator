@@ -1,0 +1,22 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Dalamud
+*.dll
+*.pdb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Package cache
+packages/

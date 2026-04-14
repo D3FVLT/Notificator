@@ -1,0 +1,8 @@
+{
+  "Name": "Notificator",
+  "Author": "YourName",
+  "Punchline": "Telegram notifications for FFXIV events",
+  "Description": "Send Telegram notifications for various in-game events like level ups, currency thresholds, duty completion, and more.",
+  "RepoUrl": "https://github.com/yourusername/Notificator",
+  "Tags": ["notifications", "telegram", "alerts"]
+}
