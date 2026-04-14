@@ -15,6 +15,8 @@ public class ConfigWindow : Window, IDisposable
     private string _chatId = string.Empty;
     private bool _testInProgress;
     private string _testResult = string.Empty;
+    private bool _waitingForStart;
+    private string _waitingStatus = string.Empty;
 
     public ConfigWindow(Configuration config, TelegramService telegram)
         : base("Notificator Settings##NotificatorConfig")
@@ -22,7 +24,7 @@ public class ConfigWindow : Window, IDisposable
         _config = config;
         _telegram = telegram;
 
-        Size = new Vector2(500, 600);
+        Size = new Vector2(500, 650);
         SizeCondition = ImGuiCond.FirstUseEver;
         Flags = ImGuiWindowFlags.NoResize;
 
@@ -64,13 +66,23 @@ public class ConfigWindow : Window, IDisposable
                 ImGui.EndTabItem();
             }
 
+            if (ImGui.BeginTabItem("Logs"))
+            {
+                DrawLogsTab();
+                ImGui.EndTabItem();
+            }
+
             ImGui.EndTabBar();
         }
     }
 
     private void DrawTelegramTab()
     {
-        ImGui.TextWrapped("Configure your Telegram bot credentials to receive notifications.");
+        ImGui.TextColored(new Vector4(0.4f, 0.8f, 1f, 1f), "Quick Setup:");
+        ImGui.TextWrapped($"1. Open Telegram and find {TelegramService.BotUsername}");
+        ImGui.TextWrapped("2. Send /start to the bot");
+        ImGui.TextWrapped("3. Click 'Auto-detect Chat ID' below");
+        
         ImGui.Spacing();
         ImGui.Separator();
         ImGui.Spacing();
@@ -82,18 +94,32 @@ public class ConfigWindow : Window, IDisposable
             _config.TelegramBotToken = _botToken;
             _config.Save();
         }
-        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Get from @BotFather on Telegram");
+        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Pre-filled with default bot. You can use your own.");
 
         ImGui.Spacing();
 
         ImGui.Text("Chat ID:");
-        ImGui.SetNextItemWidth(-1);
+        ImGui.SetNextItemWidth(-150);
         if (ImGui.InputText("##ChatId", ref _chatId, 64))
         {
             _config.TelegramChatId = _chatId;
             _config.Save();
         }
-        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Your Telegram user ID or group chat ID");
+        ImGui.SameLine();
+        
+        ImGui.BeginDisabled(_waitingForStart);
+        if (ImGui.Button(_waitingForStart ? "Waiting..." : "Auto-detect"))
+        {
+            _waitingForStart = true;
+            _waitingStatus = "Send /start to the bot...";
+            CheckForStartCommand();
+        }
+        ImGui.EndDisabled();
+
+        if (!string.IsNullOrEmpty(_waitingStatus))
+        {
+            ImGui.TextColored(new Vector4(1f, 0.8f, 0f, 1f), _waitingStatus);
+        }
 
         ImGui.Spacing();
         ImGui.Separator();
@@ -103,11 +129,11 @@ public class ConfigWindow : Window, IDisposable
         
         if (!isConfigured)
         {
-            ImGui.TextColored(new Vector4(1f, 0.5f, 0f, 1f), "Telegram not configured");
+            ImGui.TextColored(new Vector4(1f, 0.5f, 0f, 1f), "⚠ Telegram not configured");
         }
         else
         {
-            ImGui.TextColored(new Vector4(0f, 1f, 0f, 1f), "Telegram configured");
+            ImGui.TextColored(new Vector4(0f, 1f, 0f, 1f), "✓ Telegram configured");
         }
 
         ImGui.Spacing();
@@ -126,6 +152,29 @@ public class ConfigWindow : Window, IDisposable
                 _testResult.StartsWith("Success") ? new Vector4(0f, 1f, 0f, 1f) : new Vector4(1f, 0f, 0f, 1f),
                 _testResult);
         }
+    }
+
+    private async void CheckForStartCommand()
+    {
+        for (var i = 0; i < 30; i++)
+        {
+            var (success, chatId, username) = await _telegram.CheckForStartCommandAsync();
+            if (success)
+            {
+                _chatId = chatId;
+                _config.TelegramChatId = chatId;
+                _config.Save();
+                _waitingStatus = $"Found! Chat ID: {chatId} ({username})";
+                _waitingForStart = false;
+                
+                await _telegram.SendMessageAsync($"✅ <b>Connected!</b>\nHello {username}! You will now receive FFXIV notifications here.");
+                return;
+            }
+            await System.Threading.Tasks.Task.Delay(1000);
+        }
+        
+        _waitingStatus = "Timeout. Try again.";
+        _waitingForStart = false;
     }
 
     private void DrawLevelTab()
@@ -195,35 +244,67 @@ public class ConfigWindow : Window, IDisposable
         }
 
         ImGui.Spacing();
+        ImGui.Text("Tomestones:");
+        ImGui.Indent();
 
-        // Tomestones
-        var onTomes = _config.Notifications.OnTomestonesThreshold;
-        if (ImGui.Checkbox("Tomestone Threshold", ref onTomes))
+        // Poetics
+        var onPoetics = _config.Notifications.OnPoeticsThreshold;
+        if (ImGui.Checkbox("Poetics", ref onPoetics))
         {
-            _config.Notifications.OnTomestonesThreshold = onTomes;
+            _config.Notifications.OnPoeticsThreshold = onPoetics;
             _config.Save();
         }
-        if (onTomes)
+        if (onPoetics)
         {
             ImGui.SameLine();
             ImGui.SetNextItemWidth(100);
-            var tomeThreshold = _config.Notifications.TomestonesThreshold;
-            if (ImGui.InputInt("##TomeThreshold", ref tomeThreshold, 100))
+            var poeticsThreshold = _config.Notifications.PoeticsThreshold;
+            if (ImGui.InputInt("##PoeticsThreshold", ref poeticsThreshold, 100))
             {
-                _config.Notifications.TomestonesThreshold = Math.Max(0, Math.Min(2000, tomeThreshold));
-                _config.Save();
-            }
-
-            var tomeType = (int)_config.Notifications.TomestoneTypeToTrack;
-            ImGui.SetNextItemWidth(150);
-            var tomeTypes = new[] { "Poetics", "Heliometry" };
-            if (ImGui.Combo("Type##TomeType", ref tomeType, tomeTypes, tomeTypes.Length))
-            {
-                _config.Notifications.TomestoneTypeToTrack = tomeType == 0 ? TomestoneType.Poetics : TomestoneType.Heliometry;
+                _config.Notifications.PoeticsThreshold = Math.Max(0, Math.Min(2000, poeticsThreshold));
                 _config.Save();
             }
         }
 
+        // Mathematics (uncapped)
+        var onMath = _config.Notifications.OnMathematicsThreshold;
+        if (ImGui.Checkbox("Mathematics (uncapped)", ref onMath))
+        {
+            _config.Notifications.OnMathematicsThreshold = onMath;
+            _config.Save();
+        }
+        if (onMath)
+        {
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(100);
+            var mathThreshold = _config.Notifications.MathematicsThreshold;
+            if (ImGui.InputInt("##MathThreshold", ref mathThreshold, 100))
+            {
+                _config.Notifications.MathematicsThreshold = Math.Max(0, Math.Min(2000, mathThreshold));
+                _config.Save();
+            }
+        }
+
+        // Mnemonics (capped)
+        var onMnem = _config.Notifications.OnMnemonicsThreshold;
+        if (ImGui.Checkbox("Mnemonics (capped)", ref onMnem))
+        {
+            _config.Notifications.OnMnemonicsThreshold = onMnem;
+            _config.Save();
+        }
+        if (onMnem)
+        {
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(100);
+            var mnemThreshold = _config.Notifications.MnemonicsThreshold;
+            if (ImGui.InputInt("##MnemThreshold", ref mnemThreshold, 100))
+            {
+                _config.Notifications.MnemonicsThreshold = Math.Max(0, Math.Min(2000, mnemThreshold));
+                _config.Save();
+            }
+        }
+
+        ImGui.Unindent();
         ImGui.Spacing();
 
         // Company Seals
@@ -355,7 +436,7 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Separator();
         ImGui.Spacing();
 
-        ImGui.Text("Progression:");
+        ImGui.Text("Social:");
 
         var onComm = _config.Notifications.OnCommendationReceived;
         if (ImGui.Checkbox("Commendation Received", ref onComm))
@@ -364,11 +445,56 @@ public class ConfigWindow : Window, IDisposable
             _config.Save();
         }
 
+        var onPM = _config.Notifications.OnPrivateMessage;
+        if (ImGui.Checkbox("Private Message (Tell)", ref onPM))
+        {
+            _config.Notifications.OnPrivateMessage = onPM;
+            _config.Save();
+        }
+        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Forward incoming tells to Telegram");
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        ImGui.Text("Progression:");
+
         var onGC = _config.Notifications.OnGCRankUp;
         if (ImGui.Checkbox("Grand Company Rank Up", ref onGC))
         {
             _config.Notifications.OnGCRankUp = onGC;
             _config.Save();
+        }
+    }
+
+    private void DrawLogsTab()
+    {
+        ImGui.TextWrapped("Recent notification activity.");
+        ImGui.Spacing();
+        
+        if (ImGui.Button("Clear Logs"))
+        {
+            _config.RecentLogs.Clear();
+        }
+        
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        var height = ImGui.GetContentRegionAvail().Y;
+        if (ImGui.BeginChild("LogsChild", new Vector2(-1, height), false))
+        {
+            if (_config.RecentLogs.Count == 0)
+            {
+                ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "No logs yet. Activity will appear here.");
+            }
+            else
+            {
+                foreach (var log in _config.RecentLogs)
+                {
+                    ImGui.TextWrapped(log);
+                }
+            }
+            ImGui.EndChild();
         }
     }
 

@@ -32,7 +32,8 @@ public sealed class Plugin : IDalamudPlugin
         IPlayerState playerState,
         IDutyState dutyState,
         ICondition condition,
-        IDataManager dataManager)
+        IDataManager dataManager,
+        IChatGui chatGui)
     {
         PluginInterface = pluginInterface;
         _commandManager = commandManager;
@@ -43,7 +44,7 @@ public sealed class Plugin : IDalamudPlugin
         _telegram = new TelegramService(_config, log);
         _tracker = new NotificationTracker(
             _config, _telegram, log, clientState, playerState, 
-            dutyState, condition, dataManager);
+            dutyState, condition, dataManager, chatGui);
 
         _windowSystem = new WindowSystem("Notificator");
         _configWindow = new ConfigWindow(_config, _telegram);

@@ -32,17 +32,17 @@ jobs:
           curl -L https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -o dalamud.zip
           unzip dalamud.zip -d $DALAMUD_HOME
 
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Restore
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Get version
-        id: version
-        run: |
-          version=$(grep -oP '(?<=<Version>)[^<]+' ${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_NAME }}.csproj)
-          echo "version=$version" >> $GITHUB_OUTPUT
+        run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }}
 
       - name: Prepare Release
         run: |
