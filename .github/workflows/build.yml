@@ -10,6 +10,9 @@ env:
   PLUGIN_NAME: Notificator
   DALAMUD_HOME: /tmp/dalamud
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
