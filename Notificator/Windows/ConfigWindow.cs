@@ -10,6 +10,7 @@ public class ConfigWindow : Window, IDisposable
 {
     private readonly Configuration _config;
     private readonly TelegramService _telegram;
+    private readonly NotificationTracker _tracker;
 
     private string _botToken = string.Empty;
     private string _chatId = string.Empty;
@@ -18,15 +19,22 @@ public class ConfigWindow : Window, IDisposable
     private bool _waitingForStart;
     private string _waitingStatus = string.Empty;
 
-    public ConfigWindow(Configuration config, TelegramService telegram)
-        : base("Notificator Settings##NotificatorConfig")
+    private static readonly Vector4 ColorGreen = new(0.4f, 1f, 0.4f, 1f);
+    private static readonly Vector4 ColorYellow = new(1f, 0.85f, 0.3f, 1f);
+    private static readonly Vector4 ColorRed = new(1f, 0.4f, 0.4f, 1f);
+    private static readonly Vector4 ColorGray = new(0.6f, 0.6f, 0.6f, 1f);
+    private static readonly Vector4 ColorBlue = new(0.4f, 0.7f, 1f, 1f);
+    private static readonly Vector4 ColorWhite = new(1f, 1f, 1f, 1f);
+
+    public ConfigWindow(Configuration config, TelegramService telegram, NotificationTracker tracker)
+        : base("Notificator##NotificatorConfig")
     {
         _config = config;
         _telegram = telegram;
+        _tracker = tracker;
 
-        Size = new Vector2(500, 650);
+        Size = new Vector2(520, 680);
         SizeCondition = ImGuiCond.FirstUseEver;
-        Flags = ImGuiWindowFlags.NoResize;
 
         _botToken = config.TelegramBotToken;
         _chatId = config.TelegramChatId;
@@ -36,33 +44,21 @@ public class ConfigWindow : Window, IDisposable
     {
         if (ImGui.BeginTabBar("NotificatorTabs"))
         {
-            if (ImGui.BeginTabItem("Telegram"))
+            if (ImGui.BeginTabItem("Setup"))
             {
                 DrawTelegramTab();
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("Level & XP"))
+            if (ImGui.BeginTabItem("Tracking"))
             {
-                DrawLevelTab();
-                ImGui.EndTabItem();
-            }
-
-            if (ImGui.BeginTabItem("Currency"))
-            {
-                DrawCurrencyTab();
+                DrawTrackingTab();
                 ImGui.EndTabItem();
             }
 
             if (ImGui.BeginTabItem("Duties"))
             {
                 DrawDutyTab();
-                ImGui.EndTabItem();
-            }
-
-            if (ImGui.BeginTabItem("Other"))
-            {
-                DrawOtherTab();
                 ImGui.EndTabItem();
             }
 
@@ -78,69 +74,79 @@ public class ConfigWindow : Window, IDisposable
 
     private void DrawTelegramTab()
     {
-        ImGui.TextColored(new Vector4(0.4f, 0.8f, 1f, 1f), "Quick Setup:");
-        ImGui.TextWrapped("1. Create a bot via @BotFather in Telegram and copy the token");
-        ImGui.TextWrapped("2. Paste the token below");
-        ImGui.TextWrapped("3. Send /start to your bot");
-        ImGui.TextWrapped("4. Click 'Auto-detect' to get your Chat ID");
-        
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.Text("Bot Token:");
-        ImGui.SetNextItemWidth(-1);
-        if (ImGui.InputText("##BotToken", ref _botToken, 256))
+        DrawSection("Quick Setup", () =>
         {
-            _config.TelegramBotToken = _botToken;
-            _config.Save();
-        }
-        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Get from @BotFather on Telegram");
-
-        ImGui.Spacing();
-
-        ImGui.Text("Chat ID:");
-        ImGui.SetNextItemWidth(-150);
-        if (ImGui.InputText("##ChatId", ref _chatId, 64))
-        {
-            _config.TelegramChatId = _chatId;
-            _config.Save();
-        }
-        ImGui.SameLine();
-        
-        ImGui.BeginDisabled(_waitingForStart);
-        if (ImGui.Button(_waitingForStart ? "Waiting..." : "Auto-detect"))
-        {
-            _waitingForStart = true;
-            _waitingStatus = "Send /start to the bot...";
-            CheckForStartCommand();
-        }
-        ImGui.EndDisabled();
-
-        if (!string.IsNullOrEmpty(_waitingStatus))
-        {
-            ImGui.TextColored(new Vector4(1f, 0.8f, 0f, 1f), _waitingStatus);
-        }
+            ImGui.TextColored(ColorBlue, "1.");
+            ImGui.SameLine();
+            ImGui.TextWrapped("Create a bot via @BotFather in Telegram");
+            
+            ImGui.TextColored(ColorBlue, "2.");
+            ImGui.SameLine();
+            ImGui.TextWrapped("Paste the bot token below");
+            
+            ImGui.TextColored(ColorBlue, "3.");
+            ImGui.SameLine();
+            ImGui.TextWrapped("Send /start to your bot in Telegram");
+            
+            ImGui.TextColored(ColorBlue, "4.");
+            ImGui.SameLine();
+            ImGui.TextWrapped("Click Auto-detect to grab your Chat ID");
+        });
 
         ImGui.Spacing();
-        ImGui.Separator();
+
+        DrawSection("Bot Token", () =>
+        {
+            ImGui.SetNextItemWidth(-1);
+            if (ImGui.InputText("##BotToken", ref _botToken, 256, ImGuiInputTextFlags.Password))
+            {
+                _config.TelegramBotToken = _botToken;
+                _config.Save();
+            }
+        });
+
+        DrawSection("Chat ID", () =>
+        {
+            ImGui.SetNextItemWidth(-120);
+            if (ImGui.InputText("##ChatId", ref _chatId, 64))
+            {
+                _config.TelegramChatId = _chatId;
+                _config.Save();
+            }
+            ImGui.SameLine();
+            
+            ImGui.BeginDisabled(_waitingForStart);
+            if (ImGui.Button(_waitingForStart ? "Waiting..." : "Auto-detect", new Vector2(110, 0)))
+            {
+                _waitingForStart = true;
+                _waitingStatus = "Send /start to the bot...";
+                CheckForStartCommand();
+            }
+            ImGui.EndDisabled();
+            
+            if (!string.IsNullOrEmpty(_waitingStatus))
+            {
+                ImGui.TextColored(ColorYellow, _waitingStatus);
+            }
+        });
+
         ImGui.Spacing();
 
         var isConfigured = _telegram.IsConfigured;
         
-        if (!isConfigured)
+        if (isConfigured)
         {
-            ImGui.TextColored(new Vector4(1f, 0.5f, 0f, 1f), "⚠ Telegram not configured");
+            ImGui.TextColored(ColorGreen, "Connected");
         }
         else
         {
-            ImGui.TextColored(new Vector4(0f, 1f, 0f, 1f), "✓ Telegram configured");
+            ImGui.TextColored(ColorRed, "Not configured — fill in both fields above");
         }
 
         ImGui.Spacing();
 
         ImGui.BeginDisabled(!isConfigured || _testInProgress);
-        if (ImGui.Button(_testInProgress ? "Testing..." : "Test Connection"))
+        if (ImGui.Button(_testInProgress ? "Sending..." : "Send Test Message", new Vector2(180, 0)))
         {
             TestConnection();
         }
@@ -150,8 +156,256 @@ public class ConfigWindow : Window, IDisposable
         {
             ImGui.SameLine();
             ImGui.TextColored(
-                _testResult.StartsWith("Success") ? new Vector4(0f, 1f, 0f, 1f) : new Vector4(1f, 0f, 0f, 1f),
+                _testResult.StartsWith("Success") ? ColorGreen : ColorRed,
                 _testResult);
+        }
+    }
+
+    private void DrawTrackingTab()
+    {
+        // Status overview
+        DrawSection("Current Status", () =>
+        {
+            DrawStatusRow("Class/Job", _tracker.CurrentClassJob, $"Lv. {_tracker.CurrentLevel}");
+            DrawStatusRow("Zone", _tracker.CurrentZone, "");
+            DrawStatusRow("Commendations", _tracker.CurrentCommendations.ToString(), "");
+        });
+
+        ImGui.Spacing();
+
+        // Level
+        DrawSection("Level", () =>
+        {
+            var onLevelUp = _config.Notifications.OnLevelUp;
+            if (ImGui.Checkbox("Notify on Level Up", ref onLevelUp))
+            {
+                _config.Notifications.OnLevelUp = onLevelUp;
+                _config.Save();
+            }
+
+            if (onLevelUp)
+            {
+                ImGui.SameLine();
+                ImGui.SetNextItemWidth(80);
+                var threshold = _config.Notifications.LevelUpThreshold;
+                if (ImGui.InputInt("##LvlMin", ref threshold))
+                {
+                    _config.Notifications.LevelUpThreshold = Math.Max(0, Math.Min(100, threshold));
+                    _config.Save();
+                }
+                ImGui.SameLine();
+                ImGui.TextColored(ColorGray, "min level (0=any)");
+            }
+
+            var onClassChange = _config.Notifications.OnClassJobChange;
+            if (ImGui.Checkbox("Notify on Class/Job Change", ref onClassChange))
+            {
+                _config.Notifications.OnClassJobChange = onClassChange;
+                _config.Save();
+            }
+        });
+
+        ImGui.Spacing();
+
+        // Currencies
+        DrawSection("Currencies", () =>
+        {
+            DrawCurrencyRow("Gil", _tracker.CurrentGil, -1,
+                ref _config.Notifications.OnGilThreshold, ref _config.Notifications.GilThreshold, 100000);
+
+            ImGui.Spacing();
+            ImGui.TextColored(ColorBlue, "Tomestones");
+
+            var poeticsThresholdLong = (long)_config.Notifications.PoeticsThreshold;
+            DrawCurrencyRow("Poetics", _tracker.CurrentPoetics, 2000,
+                ref _config.Notifications.OnPoeticsThreshold, ref poeticsThresholdLong, 100);
+            _config.Notifications.PoeticsThreshold = (int)poeticsThresholdLong;
+
+            var mathThresholdLong = (long)_config.Notifications.MathematicsThreshold;
+            DrawCurrencyRow("Mathematics", _tracker.CurrentMathematics, 2000,
+                ref _config.Notifications.OnMathematicsThreshold, ref mathThresholdLong, 100);
+            _config.Notifications.MathematicsThreshold = (int)mathThresholdLong;
+
+            var mnemThresholdLong = (long)_config.Notifications.MnemonicsThreshold;
+            DrawCurrencyRow("Mnemonics", _tracker.CurrentMnemonics, 2000,
+                ref _config.Notifications.OnMnemonicsThreshold, ref mnemThresholdLong, 100);
+            _config.Notifications.MnemonicsThreshold = (int)mnemThresholdLong;
+
+            ImGui.Spacing();
+            ImGui.TextColored(ColorBlue, "Other");
+
+            var sealsThresholdLong = (long)_config.Notifications.CompanySealsThreshold;
+            DrawCurrencyRow("Company Seals", _tracker.CurrentCompanySeals, 90000,
+                ref _config.Notifications.OnCompanySealsThreshold, ref sealsThresholdLong, 10000);
+            _config.Notifications.CompanySealsThreshold = (int)sealsThresholdLong;
+
+            var mgpThresholdLong = (long)_config.Notifications.MGPThreshold;
+            DrawCurrencyRow("MGP", _tracker.CurrentMGP, -1,
+                ref _config.Notifications.OnMGPThreshold, ref mgpThresholdLong, 10000);
+            _config.Notifications.MGPThreshold = (int)mgpThresholdLong;
+        });
+
+        ImGui.Spacing();
+
+        // Social & Other
+        DrawSection("Social & Other", () =>
+        {
+            var onZone = _config.Notifications.OnZoneChange;
+            if (ImGui.Checkbox("Zone Change", ref onZone))
+            {
+                _config.Notifications.OnZoneChange = onZone;
+                _config.Save();
+            }
+
+            var onDeath = _config.Notifications.OnDeath;
+            if (ImGui.Checkbox("Death", ref onDeath))
+            {
+                _config.Notifications.OnDeath = onDeath;
+                _config.Save();
+            }
+
+            var onComm = _config.Notifications.OnCommendationReceived;
+            if (ImGui.Checkbox("Commendation Received", ref onComm))
+            {
+                _config.Notifications.OnCommendationReceived = onComm;
+                _config.Save();
+            }
+
+            var onPM = _config.Notifications.OnPrivateMessage;
+            if (ImGui.Checkbox("Private Messages (Tells)", ref onPM))
+            {
+                _config.Notifications.OnPrivateMessage = onPM;
+                _config.Save();
+            }
+
+            var onGC = _config.Notifications.OnGCRankUp;
+            if (ImGui.Checkbox("Grand Company Rank Up", ref onGC))
+            {
+                _config.Notifications.OnGCRankUp = onGC;
+                _config.Save();
+            }
+        });
+    }
+
+    private void DrawDutyTab()
+    {
+        DrawSection("Duty Finder", () =>
+        {
+            var onPop = _config.Notifications.OnDutyPop;
+            if (ImGui.Checkbox("Queue Pop", ref onPop))
+            {
+                _config.Notifications.OnDutyPop = onPop;
+                _config.Save();
+            }
+            ImGui.TextColored(ColorGray, "  Great for AFK queuing");
+
+            ImGui.Spacing();
+
+            var onStart = _config.Notifications.OnDutyStart;
+            if (ImGui.Checkbox("Duty Started", ref onStart))
+            {
+                _config.Notifications.OnDutyStart = onStart;
+                _config.Save();
+            }
+
+            var onComplete = _config.Notifications.OnDutyComplete;
+            if (ImGui.Checkbox("Duty Completed", ref onComplete))
+            {
+                _config.Notifications.OnDutyComplete = onComplete;
+                _config.Save();
+            }
+
+            var onWipe = _config.Notifications.OnDutyWipe;
+            if (ImGui.Checkbox("Party Wipe", ref onWipe))
+            {
+                _config.Notifications.OnDutyWipe = onWipe;
+                _config.Save();
+            }
+        });
+    }
+
+    private void DrawLogsTab()
+    {
+        if (ImGui.Button("Clear"))
+        {
+            _config.RecentLogs.Clear();
+        }
+        ImGui.SameLine();
+        ImGui.TextColored(ColorGray, $"{_config.RecentLogs.Count} entries");
+        
+        ImGui.Separator();
+
+        var height = ImGui.GetContentRegionAvail().Y;
+        if (ImGui.BeginChild("LogsChild", new Vector2(-1, height), false))
+        {
+            if (_config.RecentLogs.Count == 0)
+            {
+                ImGui.TextColored(ColorGray, "No activity yet.");
+            }
+            else
+            {
+                foreach (var log in _config.RecentLogs)
+                {
+                    ImGui.TextWrapped(log);
+                }
+            }
+            ImGui.EndChild();
+        }
+    }
+
+    // --- Helpers ---
+
+    private static void DrawSection(string label, Action content)
+    {
+        ImGui.TextColored(ColorWhite, label);
+        ImGui.Separator();
+        ImGui.Indent(8);
+        ImGui.Spacing();
+        content();
+        ImGui.Spacing();
+        ImGui.Unindent(8);
+    }
+
+    private static void DrawStatusRow(string label, string value, string extra)
+    {
+        ImGui.TextColored(ColorGray, $"{label}:");
+        ImGui.SameLine();
+        ImGui.Text(string.IsNullOrEmpty(value) ? "—" : value);
+        if (!string.IsNullOrEmpty(extra))
+        {
+            ImGui.SameLine();
+            ImGui.TextColored(ColorBlue, extra);
+        }
+    }
+
+    private void DrawCurrencyRow(string name, long current, long cap,
+        ref bool enabled, ref long threshold, int step)
+    {
+        if (ImGui.Checkbox($"##{name}Enable", ref enabled))
+        {
+            _config.Save();
+        }
+        ImGui.SameLine();
+
+        var currentStr = cap > 0 ? $"{current:N0}/{cap:N0}" : $"{current:N0}";
+        ImGui.Text(name);
+        ImGui.SameLine();
+        var ratio = cap > 0 ? (float)current / cap : 0;
+        var color = ratio > 0.9f ? ColorRed : (ratio > 0.7f ? ColorYellow : ColorGray);
+        ImGui.TextColored(color, $"({currentStr})");
+
+        if (enabled)
+        {
+            ImGui.SameLine();
+            ImGui.TextColored(ColorGray, "@");
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(90);
+            var thresholdInt = (int)threshold;
+            if (ImGui.InputInt($"##{name}Threshold", ref thresholdInt, step))
+            {
+                threshold = Math.Max(0, thresholdInt);
+                _config.Save();
+            }
         }
     }
 
@@ -165,7 +419,7 @@ public class ConfigWindow : Window, IDisposable
                 _chatId = chatId;
                 _config.TelegramChatId = chatId;
                 _config.Save();
-                _waitingStatus = $"Found! Chat ID: {chatId} ({username})";
+                _waitingStatus = $"Done! Chat ID: {chatId} ({username})";
                 _waitingForStart = false;
                 
                 await _telegram.SendMessageAsync($"✅ <b>Connected!</b>\nHello {username}! You will now receive FFXIV notifications here.");
@@ -174,329 +428,8 @@ public class ConfigWindow : Window, IDisposable
             await System.Threading.Tasks.Task.Delay(1000);
         }
         
-        _waitingStatus = "Timeout. Try again.";
+        _waitingStatus = "Timeout — send /start and try again";
         _waitingForStart = false;
-    }
-
-    private void DrawLevelTab()
-    {
-        ImGui.TextWrapped("Configure notifications for level ups and experience.");
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        var onLevelUp = _config.Notifications.OnLevelUp;
-        if (ImGui.Checkbox("Notify on Level Up", ref onLevelUp))
-        {
-            _config.Notifications.OnLevelUp = onLevelUp;
-            _config.Save();
-        }
-
-        if (onLevelUp)
-        {
-            ImGui.Indent();
-            
-            var threshold = _config.Notifications.LevelUpThreshold;
-            ImGui.SetNextItemWidth(100);
-            if (ImGui.InputInt("Minimum Level (0 = any)", ref threshold))
-            {
-                _config.Notifications.LevelUpThreshold = Math.Max(0, Math.Min(100, threshold));
-                _config.Save();
-            }
-            ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Only notify when reaching this level or higher");
-            
-            ImGui.Unindent();
-        }
-
-        ImGui.Spacing();
-
-        var onClassChange = _config.Notifications.OnClassJobChange;
-        if (ImGui.Checkbox("Notify on Class/Job Change", ref onClassChange))
-        {
-            _config.Notifications.OnClassJobChange = onClassChange;
-            _config.Save();
-        }
-    }
-
-    private void DrawCurrencyTab()
-    {
-        ImGui.TextWrapped("Configure notifications when currency reaches certain thresholds.");
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        // Gil
-        var onGil = _config.Notifications.OnGilThreshold;
-        if (ImGui.Checkbox("Gil Threshold", ref onGil))
-        {
-            _config.Notifications.OnGilThreshold = onGil;
-            _config.Save();
-        }
-        if (onGil)
-        {
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(150);
-            var gilThreshold = (int)_config.Notifications.GilThreshold;
-            if (ImGui.InputInt("##GilThreshold", ref gilThreshold, 100000))
-            {
-                _config.Notifications.GilThreshold = Math.Max(0, gilThreshold);
-                _config.Save();
-            }
-        }
-
-        ImGui.Spacing();
-        ImGui.Text("Tomestones:");
-        ImGui.Indent();
-
-        // Poetics
-        var onPoetics = _config.Notifications.OnPoeticsThreshold;
-        if (ImGui.Checkbox("Poetics", ref onPoetics))
-        {
-            _config.Notifications.OnPoeticsThreshold = onPoetics;
-            _config.Save();
-        }
-        if (onPoetics)
-        {
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(100);
-            var poeticsThreshold = _config.Notifications.PoeticsThreshold;
-            if (ImGui.InputInt("##PoeticsThreshold", ref poeticsThreshold, 100))
-            {
-                _config.Notifications.PoeticsThreshold = Math.Max(0, Math.Min(2000, poeticsThreshold));
-                _config.Save();
-            }
-        }
-
-        // Mathematics (uncapped)
-        var onMath = _config.Notifications.OnMathematicsThreshold;
-        if (ImGui.Checkbox("Mathematics (uncapped)", ref onMath))
-        {
-            _config.Notifications.OnMathematicsThreshold = onMath;
-            _config.Save();
-        }
-        if (onMath)
-        {
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(100);
-            var mathThreshold = _config.Notifications.MathematicsThreshold;
-            if (ImGui.InputInt("##MathThreshold", ref mathThreshold, 100))
-            {
-                _config.Notifications.MathematicsThreshold = Math.Max(0, Math.Min(2000, mathThreshold));
-                _config.Save();
-            }
-        }
-
-        // Mnemonics (capped)
-        var onMnem = _config.Notifications.OnMnemonicsThreshold;
-        if (ImGui.Checkbox("Mnemonics (capped)", ref onMnem))
-        {
-            _config.Notifications.OnMnemonicsThreshold = onMnem;
-            _config.Save();
-        }
-        if (onMnem)
-        {
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(100);
-            var mnemThreshold = _config.Notifications.MnemonicsThreshold;
-            if (ImGui.InputInt("##MnemThreshold", ref mnemThreshold, 100))
-            {
-                _config.Notifications.MnemonicsThreshold = Math.Max(0, Math.Min(2000, mnemThreshold));
-                _config.Save();
-            }
-        }
-
-        ImGui.Unindent();
-        ImGui.Spacing();
-
-        // Company Seals
-        var onSeals = _config.Notifications.OnCompanySealsThreshold;
-        if (ImGui.Checkbox("Company Seals Threshold", ref onSeals))
-        {
-            _config.Notifications.OnCompanySealsThreshold = onSeals;
-            _config.Save();
-        }
-        if (onSeals)
-        {
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(100);
-            var sealThreshold = _config.Notifications.CompanySealsThreshold;
-            if (ImGui.InputInt("##SealThreshold", ref sealThreshold, 10000))
-            {
-                _config.Notifications.CompanySealsThreshold = Math.Max(0, Math.Min(90000, sealThreshold));
-                _config.Save();
-            }
-        }
-
-        ImGui.Spacing();
-
-        // MGP
-        var onMGP = _config.Notifications.OnMGPThreshold;
-        if (ImGui.Checkbox("MGP Threshold", ref onMGP))
-        {
-            _config.Notifications.OnMGPThreshold = onMGP;
-            _config.Save();
-        }
-        if (onMGP)
-        {
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(100);
-            var mgpThreshold = _config.Notifications.MGPThreshold;
-            if (ImGui.InputInt("##MGPThreshold", ref mgpThreshold, 10000))
-            {
-                _config.Notifications.MGPThreshold = Math.Max(0, mgpThreshold);
-                _config.Save();
-            }
-        }
-    }
-
-    private void DrawDutyTab()
-    {
-        ImGui.TextWrapped("Configure notifications for duty finder and dungeon events.");
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        var onPop = _config.Notifications.OnDutyPop;
-        if (ImGui.Checkbox("Duty Finder Pop", ref onPop))
-        {
-            _config.Notifications.OnDutyPop = onPop;
-            _config.Save();
-        }
-        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "When queue pops (useful when AFK)");
-
-        ImGui.Spacing();
-
-        var onStart = _config.Notifications.OnDutyStart;
-        if (ImGui.Checkbox("Duty Start", ref onStart))
-        {
-            _config.Notifications.OnDutyStart = onStart;
-            _config.Save();
-        }
-
-        var onComplete = _config.Notifications.OnDutyComplete;
-        if (ImGui.Checkbox("Duty Complete", ref onComplete))
-        {
-            _config.Notifications.OnDutyComplete = onComplete;
-            _config.Save();
-        }
-
-        var onWipe = _config.Notifications.OnDutyWipe;
-        if (ImGui.Checkbox("Party Wipe", ref onWipe))
-        {
-            _config.Notifications.OnDutyWipe = onWipe;
-            _config.Save();
-        }
-    }
-
-    private void DrawOtherTab()
-    {
-        ImGui.TextWrapped("Configure other notification types.");
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.Text("Login/Logout:");
-        
-        var onLogin = _config.Notifications.OnLogin;
-        if (ImGui.Checkbox("Login", ref onLogin))
-        {
-            _config.Notifications.OnLogin = onLogin;
-            _config.Save();
-        }
-
-        ImGui.SameLine();
-
-        var onLogout = _config.Notifications.OnLogout;
-        if (ImGui.Checkbox("Logout", ref onLogout))
-        {
-            _config.Notifications.OnLogout = onLogout;
-            _config.Save();
-        }
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.Text("Zone & Combat:");
-
-        var onZone = _config.Notifications.OnZoneChange;
-        if (ImGui.Checkbox("Zone Change", ref onZone))
-        {
-            _config.Notifications.OnZoneChange = onZone;
-            _config.Save();
-        }
-
-        var onDeath = _config.Notifications.OnDeath;
-        if (ImGui.Checkbox("Death", ref onDeath))
-        {
-            _config.Notifications.OnDeath = onDeath;
-            _config.Save();
-        }
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.Text("Social:");
-
-        var onComm = _config.Notifications.OnCommendationReceived;
-        if (ImGui.Checkbox("Commendation Received", ref onComm))
-        {
-            _config.Notifications.OnCommendationReceived = onComm;
-            _config.Save();
-        }
-
-        var onPM = _config.Notifications.OnPrivateMessage;
-        if (ImGui.Checkbox("Private Message (Tell)", ref onPM))
-        {
-            _config.Notifications.OnPrivateMessage = onPM;
-            _config.Save();
-        }
-        ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "Forward incoming tells to Telegram");
-
-        ImGui.Spacing();
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        ImGui.Text("Progression:");
-
-        var onGC = _config.Notifications.OnGCRankUp;
-        if (ImGui.Checkbox("Grand Company Rank Up", ref onGC))
-        {
-            _config.Notifications.OnGCRankUp = onGC;
-            _config.Save();
-        }
-    }
-
-    private void DrawLogsTab()
-    {
-        ImGui.TextWrapped("Recent notification activity.");
-        ImGui.Spacing();
-        
-        if (ImGui.Button("Clear Logs"))
-        {
-            _config.RecentLogs.Clear();
-        }
-        
-        ImGui.Separator();
-        ImGui.Spacing();
-
-        var height = ImGui.GetContentRegionAvail().Y;
-        if (ImGui.BeginChild("LogsChild", new Vector2(-1, height), false))
-        {
-            if (_config.RecentLogs.Count == 0)
-            {
-                ImGui.TextColored(new Vector4(0.5f, 0.5f, 0.5f, 1f), "No logs yet. Activity will appear here.");
-            }
-            else
-            {
-                foreach (var log in _config.RecentLogs)
-                {
-                    ImGui.TextWrapped(log);
-                }
-            }
-            ImGui.EndChild();
-        }
     }
 
     private async void TestConnection()

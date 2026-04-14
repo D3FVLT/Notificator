@@ -27,10 +27,21 @@ public class NotificationTracker : IDisposable
     private readonly Dictionary<uint, long> _lastCurrencyValues = new();
     private bool _wasInCombat;
 
-    // Tomestone special IDs (from CurrencyManager)
     private const uint PoeticsSpecialId = 28;
-    private const uint MathematicsSpecialId = 50;  // Current uncapped
-    private const uint MnemonicsSpecialId = 51;    // Current capped
+    private const uint MathematicsSpecialId = 50;
+    private const uint MnemonicsSpecialId = 51;
+
+    // Current values exposed for UI
+    public long CurrentGil { get; private set; }
+    public long CurrentPoetics { get; private set; }
+    public long CurrentMathematics { get; private set; }
+    public long CurrentMnemonics { get; private set; }
+    public long CurrentCompanySeals { get; private set; }
+    public long CurrentMGP { get; private set; }
+    public short CurrentLevel { get; private set; }
+    public string CurrentClassJob { get; private set; } = string.Empty;
+    public string CurrentZone { get; private set; } = string.Empty;
+    public short CurrentCommendations { get; private set; }
 
     public NotificationTracker(
         Configuration config,
@@ -62,12 +73,15 @@ public class NotificationTracker : IDisposable
         if (_playerState.IsLoaded)
         {
             _lastLevel = _playerState.Level;
+            CurrentLevel = _lastLevel;
             _lastCommendations = _playerState.PlayerCommendations;
+            CurrentCommendations = _lastCommendations;
             if (_playerState.GrandCompany.IsValid)
             {
                 _lastGCRank = _playerState.GetGrandCompanyRank(_playerState.GrandCompany.Value);
             }
             UpdateCurrencySnapshot();
+            UpdateCurrentInfo();
         }
     }
 
@@ -77,8 +91,6 @@ public class NotificationTracker : IDisposable
         _clientState.ClassJobChanged += OnClassJobChanged;
         _clientState.TerritoryChanged += OnTerritoryChanged;
         _clientState.CfPop += OnDutyPop;
-        _clientState.Login += OnLogin;
-        _clientState.Logout += OnLogout;
 
         _dutyState.DutyStarted += OnDutyStarted;
         _dutyState.DutyCompleted += OnDutyCompleted;
@@ -93,8 +105,6 @@ public class NotificationTracker : IDisposable
         _clientState.ClassJobChanged -= OnClassJobChanged;
         _clientState.TerritoryChanged -= OnTerritoryChanged;
         _clientState.CfPop -= OnDutyPop;
-        _clientState.Login -= OnLogin;
-        _clientState.Logout -= OnLogout;
 
         _dutyState.DutyStarted -= OnDutyStarted;
         _dutyState.DutyCompleted -= OnDutyCompleted;
@@ -111,45 +121,26 @@ public class NotificationTracker : IDisposable
         {
             var senderName = sender.TextValue;
             var messageText = message.TextValue;
-            _config.AddLog($"📩 Tell from {senderName}");
+            _config.AddLog($"Tell from {senderName}");
             _ = _telegram.SendMessageAsync($"📩 <b>Private Message</b>\nFrom: {senderName}\n\n{messageText}");
-        }
-    }
-
-    private void OnLogin()
-    {
-        InitializeTracking();
-        if (_config.Notifications.OnLogin && _playerState.IsLoaded)
-        {
-            var charName = _playerState.CharacterName;
-            var world = _playerState.CurrentWorld.IsValid ? _playerState.CurrentWorld.Value.Name.ToString() : "Unknown";
-            _config.AddLog($"Login: {charName} @ {world}");
-            _ = _telegram.SendMessageAsync($"🎮 <b>Logged in!</b>\n{charName} @ {world}");
-        }
-    }
-
-    private void OnLogout(int type, int code)
-    {
-        if (_config.Notifications.OnLogout)
-        {
-            _config.AddLog("Logout");
-            _ = _telegram.SendMessageAsync("👋 <b>Logged out from FFXIV</b>");
         }
     }
 
     private void OnLevelChanged(uint classJobId, uint level)
     {
-        if (!_config.Notifications.OnLevelUp || !_playerState.IsLoaded) return;
+        if (!_playerState.IsLoaded) return;
 
         var newLevel = _playerState.Level;
-        if (newLevel > _lastLevel)
+        CurrentLevel = newLevel;
+        CurrentClassJob = GetClassJobName(classJobId);
+
+        if (_config.Notifications.OnLevelUp && newLevel > _lastLevel)
         {
             var threshold = _config.Notifications.LevelUpThreshold;
             if (threshold == 0 || newLevel >= threshold)
             {
-                var classJob = GetClassJobName(classJobId);
-                _config.AddLog($"Level up: {classJob} → {newLevel}");
-                _ = _telegram.SendMessageAsync($"⬆️ <b>Level Up!</b>\n{classJob}: Level {newLevel}");
+                _config.AddLog($"Level up: {CurrentClassJob} → {newLevel}");
+                _ = _telegram.SendMessageAsync($"⬆️ <b>Level Up!</b>\n{CurrentClassJob}: Level {newLevel}");
             }
         }
         _lastLevel = newLevel;
@@ -157,22 +148,24 @@ public class NotificationTracker : IDisposable
 
     private void OnClassJobChanged(uint classJobId)
     {
+        CurrentClassJob = GetClassJobName(classJobId);
+        if (_playerState.IsLoaded) CurrentLevel = _playerState.Level;
+        
         if (!_config.Notifications.OnClassJobChange) return;
 
-        var classJob = GetClassJobName(classJobId);
-        var level = _playerState.Level;
-        _config.AddLog($"Class change: {classJob}");
-        _ = _telegram.SendMessageAsync($"🔄 <b>Class Changed</b>\nNow playing: {classJob} (Lv. {level})");
+        _config.AddLog($"Class change: {CurrentClassJob}");
+        _ = _telegram.SendMessageAsync($"🔄 <b>Class Changed</b>\nNow playing: {CurrentClassJob} (Lv. {CurrentLevel})");
     }
 
     private void OnTerritoryChanged(ushort territoryId)
     {
+        var territory = _dataManager.GetExcelSheet<TerritoryType>()?.GetRow(territoryId);
+        CurrentZone = territory?.PlaceName.ValueNullable?.Name.ToString() ?? $"Zone {territoryId}";
+        
         if (!_config.Notifications.OnZoneChange) return;
 
-        var territory = _dataManager.GetExcelSheet<TerritoryType>()?.GetRow(territoryId);
-        var zoneName = territory?.PlaceName.ValueNullable?.Name.ToString() ?? $"Zone {territoryId}";
-        _config.AddLog($"Zone: {zoneName}");
-        _ = _telegram.SendMessageAsync($"📍 <b>Zone Changed</b>\nNow in: {zoneName}");
+        _config.AddLog($"Zone: {CurrentZone}");
+        _ = _telegram.SendMessageAsync($"📍 <b>Zone Changed</b>\nNow in: {CurrentZone}");
     }
 
     private void OnDutyPop(ContentFinderCondition duty)
@@ -219,77 +212,85 @@ public class NotificationTracker : IDisposable
         var currencyManager = CurrencyManager.Instance();
         if (currencyManager == null) return;
 
-        // Gil
+        CurrentGil = GetCurrencyAmount(1);
+        CurrentPoetics = GetSpecialCurrencyAmount(PoeticsSpecialId);
+        CurrentMathematics = GetSpecialCurrencyAmount(MathematicsSpecialId);
+        CurrentMnemonics = GetSpecialCurrencyAmount(MnemonicsSpecialId);
+        CurrentMGP = GetSpecialCurrencyAmount(29);
+
+        var gcId = GetGrandCompanySealId();
+        if (gcId > 0) CurrentCompanySeals = GetSpecialCurrencyAmount(gcId);
+
         if (_config.Notifications.OnGilThreshold)
         {
-            var gil = GetCurrencyAmount(1);
-            if (ShouldNotifyThreshold(1, gil, _config.Notifications.GilThreshold))
+            if (ShouldNotifyThreshold(1, CurrentGil, _config.Notifications.GilThreshold))
             {
-                _config.AddLog($"Gil threshold: {gil:N0}");
-                _ = _telegram.SendMessageAsync($"💰 <b>Gil Threshold Reached!</b>\nCurrent: {gil:N0} gil");
+                _config.AddLog($"Gil threshold: {CurrentGil:N0}");
+                _ = _telegram.SendMessageAsync($"💰 <b>Gil Threshold Reached!</b>\nCurrent: {CurrentGil:N0} gil");
             }
         }
 
-        // Poetics
         if (_config.Notifications.OnPoeticsThreshold)
         {
-            var poetics = GetSpecialCurrencyAmount(PoeticsSpecialId);
-            if (ShouldNotifyThreshold(PoeticsSpecialId, poetics, _config.Notifications.PoeticsThreshold))
+            if (ShouldNotifyThreshold(PoeticsSpecialId, CurrentPoetics, _config.Notifications.PoeticsThreshold))
             {
-                _config.AddLog($"Poetics threshold: {poetics:N0}");
-                _ = _telegram.SendMessageAsync($"📀 <b>Poetics Threshold!</b>\nCurrent: {poetics:N0}/2000");
+                _config.AddLog($"Poetics threshold: {CurrentPoetics:N0}");
+                _ = _telegram.SendMessageAsync($"📀 <b>Poetics Threshold!</b>\nCurrent: {CurrentPoetics:N0}/2000");
             }
         }
 
-        // Mathematics (uncapped)
         if (_config.Notifications.OnMathematicsThreshold)
         {
-            var math = GetSpecialCurrencyAmount(MathematicsSpecialId);
-            if (ShouldNotifyThreshold(MathematicsSpecialId, math, _config.Notifications.MathematicsThreshold))
+            if (ShouldNotifyThreshold(MathematicsSpecialId, CurrentMathematics, _config.Notifications.MathematicsThreshold))
             {
-                _config.AddLog($"Mathematics threshold: {math:N0}");
-                _ = _telegram.SendMessageAsync($"📀 <b>Mathematics Threshold!</b>\nCurrent: {math:N0}/2000");
+                _config.AddLog($"Mathematics threshold: {CurrentMathematics:N0}");
+                _ = _telegram.SendMessageAsync($"📀 <b>Mathematics Threshold!</b>\nCurrent: {CurrentMathematics:N0}");
             }
         }
 
-        // Mnemonics (capped)
         if (_config.Notifications.OnMnemonicsThreshold)
         {
-            var mnem = GetSpecialCurrencyAmount(MnemonicsSpecialId);
-            if (ShouldNotifyThreshold(MnemonicsSpecialId, mnem, _config.Notifications.MnemonicsThreshold))
+            if (ShouldNotifyThreshold(MnemonicsSpecialId, CurrentMnemonics, _config.Notifications.MnemonicsThreshold))
             {
-                _config.AddLog($"Mnemonics threshold: {mnem:N0}");
-                _ = _telegram.SendMessageAsync($"📀 <b>Mnemonics Threshold!</b>\nCurrent: {mnem:N0}/2000");
+                _config.AddLog($"Mnemonics threshold: {CurrentMnemonics:N0}");
+                _ = _telegram.SendMessageAsync($"📀 <b>Mnemonics Threshold!</b>\nCurrent: {CurrentMnemonics:N0}/2000");
             }
         }
 
-        // Company Seals
-        if (_config.Notifications.OnCompanySealsThreshold)
+        if (_config.Notifications.OnCompanySealsThreshold && gcId > 0)
         {
-            var gcId = GetGrandCompanySealId();
-            if (gcId > 0)
+            if (ShouldNotifyThreshold(gcId, CurrentCompanySeals, _config.Notifications.CompanySealsThreshold))
             {
-                var seals = GetSpecialCurrencyAmount(gcId);
-                if (ShouldNotifyThreshold(gcId, seals, _config.Notifications.CompanySealsThreshold))
-                {
-                    _config.AddLog($"Seals threshold: {seals:N0}");
-                    _ = _telegram.SendMessageAsync($"🎖️ <b>Company Seals Threshold!</b>\nCurrent: {seals:N0}");
-                }
+                _config.AddLog($"Seals threshold: {CurrentCompanySeals:N0}");
+                _ = _telegram.SendMessageAsync($"🎖️ <b>Company Seals Threshold!</b>\nCurrent: {CurrentCompanySeals:N0}");
             }
         }
 
-        // MGP
         if (_config.Notifications.OnMGPThreshold)
         {
-            var mgp = GetSpecialCurrencyAmount(29);
-            if (ShouldNotifyThreshold(10029, mgp, _config.Notifications.MGPThreshold))
+            if (ShouldNotifyThreshold(10029, CurrentMGP, _config.Notifications.MGPThreshold))
             {
-                _config.AddLog($"MGP threshold: {mgp:N0}");
-                _ = _telegram.SendMessageAsync($"🎰 <b>MGP Threshold Reached!</b>\nCurrent: {mgp:N0}");
+                _config.AddLog($"MGP threshold: {CurrentMGP:N0}");
+                _ = _telegram.SendMessageAsync($"🎰 <b>MGP Threshold Reached!</b>\nCurrent: {CurrentMGP:N0}");
             }
         }
 
         UpdateCurrencySnapshot();
+    }
+
+    public void UpdateCurrentInfo()
+    {
+        if (!_playerState.IsLoaded) return;
+        
+        CurrentLevel = _playerState.Level;
+        CurrentCommendations = _playerState.PlayerCommendations;
+
+        var territoryId = _clientState.TerritoryType;
+        if (territoryId > 0)
+        {
+            var territory = _dataManager.GetExcelSheet<TerritoryType>()?.GetRow(territoryId);
+            CurrentZone = territory?.PlaceName.ValueNullable?.Name.ToString() ?? $"Zone {territoryId}";
+        }
     }
 
     private bool ShouldNotifyThreshold(uint currencyId, long currentAmount, long threshold)
@@ -307,7 +308,6 @@ public class NotificationTracker : IDisposable
     {
         var inventoryManager = InventoryManager.Instance();
         if (inventoryManager == null) return 0;
-
         return inventoryManager->GetInventoryItemCount(itemId);
     }
 
@@ -319,56 +319,50 @@ public class NotificationTracker : IDisposable
         foreach (var (itemId, item) in currencyManager->SpecialItemBucket)
         {
             if (item.SpecialId == specialId)
-            {
                 return item.Count;
-            }
         }
-
         return 0;
     }
 
     private uint GetGrandCompanySealId()
     {
         if (!_playerState.GrandCompany.IsValid) return 0;
-        
-        var gcId = _playerState.GrandCompany.RowId;
-        return gcId switch
+        return _playerState.GrandCompany.RowId switch
         {
-            1 => 20, // Maelstrom
-            2 => 21, // Twin Adder
-            3 => 22, // Immortal Flames
+            1 => 20,
+            2 => 21,
+            3 => 22,
             _ => 0
         };
     }
 
     private void UpdateCurrencySnapshot()
     {
-        _lastCurrencyValues[1] = GetCurrencyAmount(1); // Gil
-        _lastCurrencyValues[PoeticsSpecialId] = GetSpecialCurrencyAmount(PoeticsSpecialId);
-        _lastCurrencyValues[MathematicsSpecialId] = GetSpecialCurrencyAmount(MathematicsSpecialId);
-        _lastCurrencyValues[MnemonicsSpecialId] = GetSpecialCurrencyAmount(MnemonicsSpecialId);
+        _lastCurrencyValues[1] = CurrentGil;
+        _lastCurrencyValues[PoeticsSpecialId] = CurrentPoetics;
+        _lastCurrencyValues[MathematicsSpecialId] = CurrentMathematics;
+        _lastCurrencyValues[MnemonicsSpecialId] = CurrentMnemonics;
         
         var gcId = GetGrandCompanySealId();
-        if (gcId > 0)
-        {
-            _lastCurrencyValues[gcId] = GetSpecialCurrencyAmount(gcId);
-        }
+        if (gcId > 0) _lastCurrencyValues[gcId] = CurrentCompanySeals;
         
-        _lastCurrencyValues[10029] = GetSpecialCurrencyAmount(29); // MGP
+        _lastCurrencyValues[10029] = CurrentMGP;
     }
 
     public void CheckCommendations()
     {
-        if (!_config.Notifications.OnCommendationReceived || !_playerState.IsLoaded) return;
-
-        var currentComms = _playerState.PlayerCommendations;
-        if (currentComms > _lastCommendations)
+        if (!_playerState.IsLoaded) return;
+        
+        CurrentCommendations = _playerState.PlayerCommendations;
+        
+        if (!_config.Notifications.OnCommendationReceived) return;
+        if (CurrentCommendations > _lastCommendations && _lastCommendations > 0)
         {
-            var gained = currentComms - _lastCommendations;
+            var gained = CurrentCommendations - _lastCommendations;
             _config.AddLog($"Commendations: +{gained}");
-            _ = _telegram.SendMessageAsync($"👏 <b>Commendation{(gained > 1 ? "s" : "")} Received!</b>\n+{gained} (Total: {currentComms})");
+            _ = _telegram.SendMessageAsync($"👏 <b>Commendation{(gained > 1 ? "s" : "")} Received!</b>\n+{gained} (Total: {CurrentCommendations})");
         }
-        _lastCommendations = currentComms;
+        _lastCommendations = CurrentCommendations;
     }
 
     public void CheckGCRank()
@@ -377,7 +371,7 @@ public class NotificationTracker : IDisposable
         if (!_playerState.GrandCompany.IsValid) return;
 
         var currentRank = _playerState.GetGrandCompanyRank(_playerState.GrandCompany.Value);
-        if (currentRank > _lastGCRank)
+        if (currentRank > _lastGCRank && _lastGCRank > 0)
         {
             var gcName = _playerState.GrandCompany.Value.Name.ToString();
             _config.AddLog($"GC Rank up: {currentRank}");
@@ -398,7 +392,6 @@ public class NotificationTracker : IDisposable
             _config.AddLog("Death");
             _ = _telegram.SendMessageAsync($"💀 <b>You Died!</b>");
         }
-
         _wasInCombat = inCombat;
     }
 

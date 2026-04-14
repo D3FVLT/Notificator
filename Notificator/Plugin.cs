@@ -47,7 +47,7 @@ public sealed class Plugin : IDalamudPlugin
             dutyState, condition, dataManager, chatGui);
 
         _windowSystem = new WindowSystem("Notificator");
-        _configWindow = new ConfigWindow(_config, _telegram);
+        _configWindow = new ConfigWindow(_config, _telegram, _tracker);
         _windowSystem.AddWindow(_configWindow);
 
         _commandManager.AddHandler("/notificator", new Dalamud.Game.Command.CommandInfo(OnCommand)

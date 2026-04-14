@@ -69,8 +69,6 @@ public class NotificationSettings
     // Zone & Status
     public bool OnZoneChange { get; set; } = false;
     public bool OnClassJobChange { get; set; } = false;
-    public bool OnLogin { get; set; } = true;
-    public bool OnLogout { get; set; } = false;
 
     // Combat & Death
     public bool OnDeath { get; set; } = false;
@@ -80,16 +78,7 @@ public class NotificationSettings
 
     // Grand Company Rank
     public bool OnGCRankUp { get; set; } = false;
-
-    // Retainer Ventures
-    public bool OnRetainerVentureComplete { get; set; } = false;
-
-    // Party
-    public bool OnPartyInvite { get; set; } = false;
     
     // Private Messages
     public bool OnPrivateMessage { get; set; } = false;
-
-    // Custom Thresholds per Currency
-    public Dictionary<uint, long> CustomCurrencyThresholds { get; set; } = new();
 }
