@@ -5,7 +5,10 @@
     <Authors>D3FVLT</Authors>
     <Description>Telegram notification plugin for FFXIV events</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ImGui.NET" Version="1.91.0.1" ExcludeAssets="runtime" />
+  </ItemGroup>
 
 </Project>
