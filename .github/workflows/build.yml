@@ -26,7 +26,7 @@ jobs:
       - name: Download Dalamud
         run: |
           mkdir -p $DALAMUD_HOME
-          curl -L https://goatcorp.github.io/dalamud-distrib/latest.zip -o dalamud.zip
+          curl -L https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -o dalamud.zip
           unzip dalamud.zip -d $DALAMUD_HOME
 
       - name: Restore
@@ -60,7 +60,7 @@ jobs:
               "RepoUrl": "https://github.com/${{ github.repository }}",
               "ApplicableVersion": "any",
               "Tags": ["notifications", "telegram", "alerts"],
-              "DalamudApiLevel": 11,
+              "DalamudApiLevel": 14,
               "IconUrl": "https://raw.githubusercontent.com/${{ github.repository }}/main/images/icon.png",
               "DownloadLinkInstall": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
               "DownloadLinkUpdate": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
