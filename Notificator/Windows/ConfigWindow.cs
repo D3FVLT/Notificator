@@ -208,42 +208,7 @@ public class ConfigWindow : Window, IDisposable
         ImGui.Spacing();
 
         // Currencies
-        DrawSection("Currencies", () =>
-        {
-            DrawCurrencyRow("Gil", _tracker.CurrentGil, -1,
-                ref _config.Notifications.OnGilThreshold, ref _config.Notifications.GilThreshold, 100000);
-
-            ImGui.Spacing();
-            ImGui.TextColored(ColorBlue, "Tomestones");
-
-            var poeticsThresholdLong = (long)_config.Notifications.PoeticsThreshold;
-            DrawCurrencyRow("Poetics", _tracker.CurrentPoetics, 2000,
-                ref _config.Notifications.OnPoeticsThreshold, ref poeticsThresholdLong, 100);
-            _config.Notifications.PoeticsThreshold = (int)poeticsThresholdLong;
-
-            var mathThresholdLong = (long)_config.Notifications.MathematicsThreshold;
-            DrawCurrencyRow("Mathematics", _tracker.CurrentMathematics, 2000,
-                ref _config.Notifications.OnMathematicsThreshold, ref mathThresholdLong, 100);
-            _config.Notifications.MathematicsThreshold = (int)mathThresholdLong;
-
-            var mnemThresholdLong = (long)_config.Notifications.MnemonicsThreshold;
-            DrawCurrencyRow("Mnemonics", _tracker.CurrentMnemonics, 2000,
-                ref _config.Notifications.OnMnemonicsThreshold, ref mnemThresholdLong, 100);
-            _config.Notifications.MnemonicsThreshold = (int)mnemThresholdLong;
-
-            ImGui.Spacing();
-            ImGui.TextColored(ColorBlue, "Other");
-
-            var sealsThresholdLong = (long)_config.Notifications.CompanySealsThreshold;
-            DrawCurrencyRow("Company Seals", _tracker.CurrentCompanySeals, 90000,
-                ref _config.Notifications.OnCompanySealsThreshold, ref sealsThresholdLong, 10000);
-            _config.Notifications.CompanySealsThreshold = (int)sealsThresholdLong;
-
-            var mgpThresholdLong = (long)_config.Notifications.MGPThreshold;
-            DrawCurrencyRow("MGP", _tracker.CurrentMGP, -1,
-                ref _config.Notifications.OnMGPThreshold, ref mgpThresholdLong, 10000);
-            _config.Notifications.MGPThreshold = (int)mgpThresholdLong;
-        });
+        DrawSection("Currencies", DrawCurrencies);
 
         ImGui.Spacing();
 
@@ -378,11 +343,41 @@ public class ConfigWindow : Window, IDisposable
         }
     }
 
+    private void DrawCurrencies()
+    {
+        var n = _config.Notifications;
+
+        DrawCurrencyRow("Gil", _tracker.CurrentGil, -1, n.OnGilThreshold, n.GilThreshold, 100000,
+            (e, t) => { n.OnGilThreshold = e; n.GilThreshold = t; });
+
+        ImGui.Spacing();
+        ImGui.TextColored(ColorBlue, "Tomestones");
+
+        DrawCurrencyRow("Poetics", _tracker.CurrentPoetics, 2000, n.OnPoeticsThreshold, n.PoeticsThreshold, 100,
+            (e, t) => { n.OnPoeticsThreshold = e; n.PoeticsThreshold = (int)t; });
+
+        DrawCurrencyRow("Mathematics", _tracker.CurrentMathematics, 2000, n.OnMathematicsThreshold, n.MathematicsThreshold, 100,
+            (e, t) => { n.OnMathematicsThreshold = e; n.MathematicsThreshold = (int)t; });
+
+        DrawCurrencyRow("Mnemonics", _tracker.CurrentMnemonics, 2000, n.OnMnemonicsThreshold, n.MnemonicsThreshold, 100,
+            (e, t) => { n.OnMnemonicsThreshold = e; n.MnemonicsThreshold = (int)t; });
+
+        ImGui.Spacing();
+        ImGui.TextColored(ColorBlue, "Other");
+
+        DrawCurrencyRow("Company Seals", _tracker.CurrentCompanySeals, 90000, n.OnCompanySealsThreshold, n.CompanySealsThreshold, 10000,
+            (e, t) => { n.OnCompanySealsThreshold = e; n.CompanySealsThreshold = (int)t; });
+
+        DrawCurrencyRow("MGP", _tracker.CurrentMGP, -1, n.OnMGPThreshold, n.MGPThreshold, 10000,
+            (e, t) => { n.OnMGPThreshold = e; n.MGPThreshold = (int)t; });
+    }
+
     private void DrawCurrencyRow(string name, long current, long cap,
-        ref bool enabled, ref long threshold, int step)
+        bool enabled, long threshold, int step, Action<bool, long> onChanged)
     {
         if (ImGui.Checkbox($"##{name}Enable", ref enabled))
         {
+            onChanged(enabled, threshold);
             _config.Save();
         }
         ImGui.SameLine();
@@ -404,6 +399,7 @@ public class ConfigWindow : Window, IDisposable
             if (ImGui.InputInt($"##{name}Threshold", ref thresholdInt, step))
             {
                 threshold = Math.Max(0, thresholdInt);
+                onChanged(enabled, threshold);
                 _config.Save();
             }
         }
