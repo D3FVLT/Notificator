@@ -44,7 +44,8 @@ jobs:
       - name: Prepare Release
         run: |
           mkdir -p release
-          cp ${{ env.PLUGIN_NAME }}/bin/Release/latest.zip release/${{ env.PLUGIN_NAME }}.zip
+          cd ${{ env.PLUGIN_NAME }}/bin/Release
+          zip -r ../../../release/${{ env.PLUGIN_NAME }}.zip *.dll *.json
 
       - name: Generate pluginmaster.json
         run: |
