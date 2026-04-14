@@ -1,0 +1,97 @@
+name: Build and Deploy Plugin
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  PLUGIN_NAME: Notificator
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download Dalamud
+        run: |
+          wget https://goatcorp.github.io/dalamud-distrib/latest.zip -O dalamud.zip
+          unzip dalamud.zip -d dalamud
+
+      - name: Build
+        run: |
+          dotnet build --configuration Release \
+            -p:DalamudLibPath=${{ github.workspace }}/dalamud/
+
+      - name: Prepare Release
+        run: |
+          mkdir -p release/${{ env.PLUGIN_NAME }}
+          cp ${{ env.PLUGIN_NAME }}/bin/x64/Release/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_NAME }}.dll release/${{ env.PLUGIN_NAME }}/
+          cp ${{ env.PLUGIN_NAME }}/bin/x64/Release/${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_NAME }}.json release/${{ env.PLUGIN_NAME }}/
+          cd release
+          zip -r ${{ env.PLUGIN_NAME }}.zip ${{ env.PLUGIN_NAME }}
+
+      - name: Get version
+        id: version
+        run: |
+          version=$(grep -oP '(?<=<Version>)[^<]+' ${{ env.PLUGIN_NAME }}/${{ env.PLUGIN_NAME }}.csproj)
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+      - name: Generate pluginmaster.json
+        run: |
+          cat > release/pluginmaster.json << 'EOF'
+          [
+            {
+              "Author": "D3FVLT",
+              "Name": "Notificator",
+              "Punchline": "Telegram notifications for FFXIV events",
+              "Description": "Send Telegram notifications for various in-game events like level ups, currency thresholds, duty completion, and more.",
+              "InternalName": "Notificator",
+              "AssemblyVersion": "${{ steps.version.outputs.version }}",
+              "RepoUrl": "https://github.com/${{ github.repository }}",
+              "ApplicableVersion": "any",
+              "Tags": ["notifications", "telegram", "alerts"],
+              "DalamudApiLevel": 14,
+              "IconUrl": "https://raw.githubusercontent.com/${{ github.repository }}/main/images/icon.png",
+              "DownloadLinkInstall": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
+              "DownloadLinkUpdate": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
+              "DownloadLinkTesting": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
+              "LastUpdate": "${{ github.run_number }}"
+            }
+          ]
+          EOF
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PLUGIN_NAME }}
+          path: release/
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/${{ env.PLUGIN_NAME }}.zip
+            release/pluginmaster.json
+          generate_release_notes: true
+
+      - name: Update repo pluginmaster.json
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          cp release/pluginmaster.json pluginmaster.json
+          git add pluginmaster.json
+          git commit -m "Update pluginmaster.json for ${{ github.ref_name }}" || true
+          git push || true

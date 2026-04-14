@@ -2,6 +2,17 @@
 
 Dalamud plugin for sending Telegram notifications about various in-game events in Final Fantasy XIV.
 
+## Installation
+
+1. Open Dalamud settings: `/xlsettings`
+2. Go to **Experimental** tab
+3. Paste this URL in **Custom Plugin Repositories**:
+   ```
+   https://raw.githubusercontent.com/YOURUSERNAME/Notificator/main/pluginmaster.json
+   ```
+4. Click **+** to add, then **Save**
+5. Open Plugin Installer (`/xlplugins`) and search for "Notificator"
+
 ## Features
 
 ### Level & Experience
@@ -31,14 +42,7 @@ Dalamud plugin for sending Telegram notifications about various in-game events i
 
 ### Prerequisites
 - XIVLauncher with Dalamud
-- .NET 10 SDK (for building)
 - A Telegram Bot (created via [@BotFather](https://t.me/BotFather))
-
-### Building
-1. Clone this repository
-2. Open `Notificator.sln` in Visual Studio 2026 or JetBrains Rider
-3. Build the solution
-4. Copy the output from `Notificator/bin/x64/Debug/` to your Dalamud dev plugins folder
 
 ### Setting Up Telegram Bot
 1. Message [@BotFather](https://t.me/BotFather) on Telegram
