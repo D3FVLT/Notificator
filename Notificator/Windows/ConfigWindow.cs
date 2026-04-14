@@ -15,6 +15,7 @@ public class ConfigWindow : Window, IDisposable
 
     private string _botToken = string.Empty;
     private string _chatId = string.Empty;
+    private string _proxyAddress = string.Empty;
     private bool _testInProgress;
     private string _testResult = string.Empty;
     private bool _waitingForStart;
@@ -39,6 +40,7 @@ public class ConfigWindow : Window, IDisposable
 
         _botToken = config.TelegramBotToken;
         _chatId = config.TelegramChatId;
+        _proxyAddress = config.ProxyAddress;
     }
 
     public override void Draw()
@@ -166,6 +168,54 @@ public class ConfigWindow : Window, IDisposable
                 _testResult.StartsWith("Success") ? ColorGreen : ColorRed,
                 _testResult);
         }
+
+        ImGui.Spacing();
+
+        DrawSection("Proxy", () =>
+        {
+            var useProxy = _config.UseProxy;
+            if (ImGui.Checkbox("Use proxy for Telegram", ref useProxy))
+            {
+                _config.UseProxy = useProxy;
+                _config.Save();
+            }
+
+            if (useProxy)
+            {
+                var proxyType = _config.ProxyType;
+                if (ImGui.RadioButton("SOCKS5", ref proxyType, 0))
+                {
+                    _config.ProxyType = proxyType;
+                    _config.Save();
+                }
+                ImGui.SameLine();
+                if (ImGui.RadioButton("HTTP", ref proxyType, 1))
+                {
+                    _config.ProxyType = proxyType;
+                    _config.Save();
+                }
+
+                ImGui.SetNextItemWidth(200);
+                if (ImGui.InputText("##ProxyAddr", ref _proxyAddress, 256))
+                {
+                    _config.ProxyAddress = _proxyAddress;
+                    _config.Save();
+                }
+                ImGui.SameLine();
+                ImGui.TextColored(ColorGray, ":");
+                ImGui.SameLine();
+                ImGui.SetNextItemWidth(80);
+                var port = _config.ProxyPort;
+                if (ImGui.InputInt("##ProxyPort", ref port, 0))
+                {
+                    _config.ProxyPort = Math.Clamp(port, 1, 65535);
+                    _config.Save();
+                }
+
+                var scheme = _config.ProxyType == 0 ? "socks5" : "http";
+                ImGui.TextColored(ColorGray, $"  {scheme}://{_config.ProxyAddress}:{_config.ProxyPort}");
+            }
+        });
     }
 
     private void DrawTrackingTab()

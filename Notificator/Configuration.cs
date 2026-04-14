@@ -12,6 +12,11 @@ public class Configuration : IPluginConfiguration
     public string TelegramBotToken { get; set; } = string.Empty;
     public string TelegramChatId { get; set; } = string.Empty;
 
+    public bool UseProxy { get; set; } = false;
+    public string ProxyAddress { get; set; } = "127.0.0.1";
+    public int ProxyPort { get; set; } = 2080;
+    public int ProxyType { get; set; } = 0; // 0=SOCKS5, 1=HTTP
+
     public NotificationSettings Notifications { get; set; } = new();
     
     public List<string> RecentLogs { get; set; } = new();

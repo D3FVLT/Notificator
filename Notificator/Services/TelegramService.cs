@@ -1,4 +1,5 @@
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -11,20 +12,66 @@ public class TelegramService : IDisposable
 {
     public const string BotUsername = "@FF14_Notif_bot";
     
-    private readonly HttpClient _httpClient;
+    private HttpClient _httpClient;
     private readonly IPluginLog _log;
     private readonly Configuration _config;
     private long _lastUpdateId;
+    private bool _lastProxyEnabled;
+    private string _lastProxyAddress = string.Empty;
+    private int _lastProxyPort;
+    private int _lastProxyType;
 
     public TelegramService(Configuration config, IPluginLog log)
     {
         _config = config;
         _log = log;
-        _httpClient = new HttpClient
+        _httpClient = CreateHttpClient();
+    }
+
+    private HttpClient CreateHttpClient()
+    {
+        _lastProxyEnabled = _config.UseProxy;
+        _lastProxyAddress = _config.ProxyAddress;
+        _lastProxyPort = _config.ProxyPort;
+        _lastProxyType = _config.ProxyType;
+
+        HttpMessageHandler handler;
+        if (_config.UseProxy && !string.IsNullOrWhiteSpace(_config.ProxyAddress))
         {
-            Timeout = TimeSpan.FromSeconds(10)
+            var scheme = _config.ProxyType == 0 ? "socks5" : "http";
+            var proxy = new WebProxy($"{scheme}://{_config.ProxyAddress}:{_config.ProxyPort}");
+            handler = new SocketsHttpHandler
+            {
+                Proxy = proxy,
+                UseProxy = true,
+                ConnectTimeout = TimeSpan.FromSeconds(10),
+            };
+            _log.Info($"Telegram using proxy: {scheme}://{_config.ProxyAddress}:{_config.ProxyPort}");
+        }
+        else
+        {
+            handler = new SocketsHttpHandler
+            {
+                ConnectTimeout = TimeSpan.FromSeconds(10),
+            };
+        }
+
+        return new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(15)
         };
-        
+    }
+
+    private void EnsureHttpClient()
+    {
+        if (_lastProxyEnabled != _config.UseProxy ||
+            _lastProxyAddress != _config.ProxyAddress ||
+            _lastProxyPort != _config.ProxyPort ||
+            _lastProxyType != _config.ProxyType)
+        {
+            _httpClient.Dispose();
+            _httpClient = CreateHttpClient();
+        }
     }
 
     public bool IsConfigured => 
@@ -39,6 +86,8 @@ public class TelegramService : IDisposable
             _config.AddLog("⚠️ Message not sent - not configured");
             return false;
         }
+
+        EnsureHttpClient();
 
         try
         {
@@ -72,12 +121,15 @@ public class TelegramService : IDisposable
 
     public async Task<bool> TestConnectionAsync()
     {
+        EnsureHttpClient();
         _config.AddLog("🔄 Testing connection...");
         return await SendMessageAsync("🎮 FFXIV Notificator: Test message - Connection successful!");
     }
 
     public async Task<(bool success, string chatId, string username)> CheckForStartCommandAsync()
     {
+        EnsureHttpClient();
+
         try
         {
             var url = $"https://api.telegram.org/bot{_config.TelegramBotToken}/getUpdates?offset={_lastUpdateId + 1}&timeout=1";
