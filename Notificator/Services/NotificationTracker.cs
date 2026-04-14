@@ -270,13 +270,22 @@ public class NotificationTracker : IDisposable
             }
         }
 
-        // Check configured thresholds
-        CheckThreshold("Gil", _config.Notifications.OnGilThreshold, _config.Notifications.GilThreshold, "💰", "Gil");
-        CheckThreshold("Poetics", _config.Notifications.OnPoeticsThreshold, _config.Notifications.PoeticsThreshold, "📀", "Poetics");
-        CheckThreshold("Mathematics", _config.Notifications.OnMathematicsThreshold, _config.Notifications.MathematicsThreshold, "📀", "Mathematics");
-        CheckThreshold("Mnemonics", _config.Notifications.OnMnemonicsThreshold, _config.Notifications.MnemonicsThreshold, "📀", "Mnemonics");
-        CheckThreshold("Company Seals", _config.Notifications.OnCompanySealsThreshold, _config.Notifications.CompanySealsThreshold, "🎖️", "Company Seals");
-        CheckThreshold("MGP", _config.Notifications.OnMGPThreshold, _config.Notifications.MGPThreshold, "🎰", "MGP");
+        // Check all configured thresholds
+        foreach (var (name, current) in CurrentCurrencies)
+        {
+            var tracking = _config.Notifications.CurrencyThresholds.GetValueOrDefault(name);
+            if (tracking is not { Enabled: true }) continue;
+
+            if (_lastCurrencyValues.TryGetValue(name, out var last))
+            {
+                if (last < tracking.Threshold && current >= tracking.Threshold)
+                {
+                    var emoji = GetCurrencyEmoji(name);
+                    _config.AddLog($"{name} threshold: {current:N0}");
+                    _ = _telegram.SendMessageAsync($"{emoji} <b>{name} Threshold!</b>\nCurrent: {current:N0}");
+                }
+            }
+        }
 
         foreach (var (name, amount) in CurrentCurrencies)
             _lastCurrencyValues[name] = amount;
@@ -418,23 +427,19 @@ public class NotificationTracker : IDisposable
         return rawName;
     }
 
-    private void CheckThreshold(string currencyName, bool enabled, long threshold, string emoji, string label)
+    private static string GetCurrencyEmoji(string name) => name switch
     {
-        if (!enabled) return;
-        if (!CurrentCurrencies.TryGetValue(currencyName, out var current)) return;
-
-        if (!_lastCurrencyValues.TryGetValue(currencyName, out var last))
-        {
-            _lastCurrencyValues[currencyName] = current;
-            return;
-        }
-
-        if (last < threshold && current >= threshold)
-        {
-            _config.AddLog($"{label} threshold: {current:N0}");
-            _ = _telegram.SendMessageAsync($"{emoji} <b>{label} Threshold!</b>\nCurrent: {current:N0}");
-        }
-    }
+        "Gil" => "💰",
+        "MGP" => "🎰",
+        "Company Seals" => "🎖️",
+        "Poetics" or "Mathematics" or "Mnemonics" => "📀",
+        _ when name.Contains("Scrip") => "📜",
+        _ when name.Contains("Seal") || name.Contains("Nuts") => "🏅",
+        _ when name.Contains("Crystal") || name.Contains("Mark") => "⚔️",
+        _ when name.Contains("Cowrie") => "🏝️",
+        _ when name.Contains("Enlightenment") || name.Contains("Cluster") => "🗡️",
+        _ => "📦",
+    };
 
     private uint GetGrandCompanySealId()
     {

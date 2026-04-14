@@ -34,31 +34,21 @@ public class Configuration : IPluginConfiguration
 }
 
 [Serializable]
+public class CurrencyTracking
+{
+    public bool Enabled { get; set; }
+    public long Threshold { get; set; }
+}
+
+[Serializable]
 public class NotificationSettings
 {
     // Level & Experience
     public bool OnLevelUp { get; set; } = true;
     public int LevelUpThreshold { get; set; } = 0;
 
-    // Currency Thresholds
-    public bool OnGilThreshold { get; set; } = false;
-    public long GilThreshold { get; set; } = 1000000;
-
-    // Tomestones - separate tracking
-    public bool OnPoeticsThreshold { get; set; } = false;
-    public int PoeticsThreshold { get; set; } = 1800;
-    
-    public bool OnMathematicsThreshold { get; set; } = false;
-    public int MathematicsThreshold { get; set; } = 1800;
-    
-    public bool OnMnemonicsThreshold { get; set; } = false;
-    public int MnemonicsThreshold { get; set; } = 1800;
-
-    public bool OnCompanySealsThreshold { get; set; } = false;
-    public int CompanySealsThreshold { get; set; } = 80000;
-
-    public bool OnMGPThreshold { get; set; } = false;
-    public int MGPThreshold { get; set; } = 100000;
+    // Dynamic currency tracking: key = display name (e.g. "Gil", "Poetics")
+    public Dictionary<string, CurrencyTracking> CurrencyThresholds { get; set; } = new();
 
     // Duty Events
     public bool OnDutyStart { get; set; } = false;
@@ -81,4 +71,14 @@ public class NotificationSettings
     
     // Private Messages
     public bool OnPrivateMessage { get; set; } = false;
+
+    public CurrencyTracking GetCurrency(string name)
+    {
+        if (!CurrencyThresholds.TryGetValue(name, out var tracking))
+        {
+            tracking = new CurrencyTracking();
+            CurrencyThresholds[name] = tracking;
+        }
+        return tracking;
+    }
 }

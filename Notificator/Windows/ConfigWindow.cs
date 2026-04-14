@@ -358,79 +358,90 @@ public class ConfigWindow : Window, IDisposable
         }
     }
 
+    private static readonly Dictionary<string, long> KnownCaps = new()
+    {
+        { "Poetics", 2000 }, { "Mathematics", 2000 }, { "Mnemonics", 2000 },
+        { "Company Seals", 90000 },
+        { "Wolf Marks", 20000 }, { "Allied Seals", 4000 },
+        { "Centurio Seals", 4000 }, { "Sack of Nuts", 4000 },
+        { "Bicolor Gemstones", 1000 },
+        { "White Crafters' Scrip", 4000 }, { "White Gatherers' Scrip", 4000 },
+        { "Purple Crafters' Scrip", 4000 }, { "Purple Gatherers' Scrip", 4000 },
+        { "Orange Crafters' Scrip", 4000 }, { "Orange Gatherers' Scrip", 4000 },
+        { "Skybuilders' Scrip", 9999 },
+        { "Enlightenment Silver Pieces", 9999 }, { "Enlightenment Gold Pieces", 9999 },
+    };
+
+    // Preferred category display order
+    private static readonly string[] CategoryOrder =
+    {
+        "Scrips", "Hunt", "PvP", "Beast Tribes", "Field Operations",
+        "Island Sanctuary", "Content", "Other",
+    };
+
     private void DrawCurrencies()
     {
-        var n = _config.Notifications;
         var c = _tracker.CurrentCurrencies;
-
-        long GetCur(string key) => c.TryGetValue(key, out var v) ? v : 0;
-
-        DrawCurrencyRow("Gil", GetCur("Gil"), -1, n.OnGilThreshold, n.GilThreshold, 100000,
-            (e, t) => { n.OnGilThreshold = e; n.GilThreshold = t; });
-
-        ImGui.Spacing();
-        ImGui.TextColored(ColorBlue, "Tomestones");
-
-        DrawCurrencyRow("Poetics", GetCur("Poetics"), 2000, n.OnPoeticsThreshold, n.PoeticsThreshold, 100,
-            (e, t) => { n.OnPoeticsThreshold = e; n.PoeticsThreshold = (int)t; });
-
-        DrawCurrencyRow("Mathematics", GetCur("Mathematics"), 2000, n.OnMathematicsThreshold, n.MathematicsThreshold, 100,
-            (e, t) => { n.OnMathematicsThreshold = e; n.MathematicsThreshold = (int)t; });
-
-        DrawCurrencyRow("Mnemonics", GetCur("Mnemonics"), 2000, n.OnMnemonicsThreshold, n.MnemonicsThreshold, 100,
-            (e, t) => { n.OnMnemonicsThreshold = e; n.MnemonicsThreshold = (int)t; });
-
-        ImGui.Spacing();
-        ImGui.TextColored(ColorBlue, "Other");
-
-        DrawCurrencyRow("Company Seals", GetCur("Company Seals"), 90000, n.OnCompanySealsThreshold, n.CompanySealsThreshold, 10000,
-            (e, t) => { n.OnCompanySealsThreshold = e; n.CompanySealsThreshold = (int)t; });
-
-        DrawCurrencyRow("MGP", GetCur("MGP"), -1, n.OnMGPThreshold, n.MGPThreshold, 10000,
-            (e, t) => { n.OnMGPThreshold = e; n.MGPThreshold = (int)t; });
-
-        // Show all other detected currencies grouped by category
-        var shown = new HashSet<string> { "Gil", "Poetics", "Mathematics", "Mnemonics", "Company Seals", "MGP" };
         var categories = _tracker.CurrencyCategories;
-        var grouped = new SortedDictionary<string, List<KeyValuePair<string, long>>>();
 
-        foreach (var kv in c)
+        // Primary currencies always shown at the top
+        string[] primary = { "Gil", "Poetics", "Mathematics", "Mnemonics", "Company Seals", "MGP" };
+        foreach (var name in primary)
         {
-            if (shown.Contains(kv.Key)) continue;
-            var cat = categories.TryGetValue(kv.Key, out var v) ? v : "Other";
-            if (!grouped.ContainsKey(cat))
-                grouped[cat] = new List<KeyValuePair<string, long>>();
-            grouped[cat].Add(kv);
+            DrawCurrencyRow(name, c.GetValueOrDefault(name));
         }
 
-        foreach (var (category, items) in grouped)
+        // Group remaining currencies by category
+        var grouped = new Dictionary<string, List<string>>();
+        foreach (var kv in c)
         {
+            if (Array.IndexOf(primary, kv.Key) >= 0) continue;
+            var cat = categories.GetValueOrDefault(kv.Key, "Other");
+            if (!grouped.ContainsKey(cat))
+                grouped[cat] = new List<string>();
+            grouped[cat].Add(kv.Key);
+        }
+
+        foreach (var cat in CategoryOrder)
+        {
+            if (!grouped.TryGetValue(cat, out var items) || items.Count == 0) continue;
+            
+            var enabledCount = 0;
+            foreach (var name in items)
+            {
+                var t = _config.Notifications.CurrencyThresholds.GetValueOrDefault(name);
+                if (t is { Enabled: true }) enabledCount++;
+            }
+
             ImGui.Spacing();
-            if (ImGui.CollapsingHeader($"{category} ({items.Count})"))
+            var headerLabel = enabledCount > 0
+                ? $"{cat} ({items.Count})  [{enabledCount} tracked]"
+                : $"{cat} ({items.Count})";
+            if (ImGui.CollapsingHeader(headerLabel))
             {
                 ImGui.Indent(8);
-                foreach (var kv in items)
+                foreach (var name in items)
                 {
-                    var valColor = kv.Value > 0 ? ColorWhite : ColorGray;
-                    ImGui.TextColored(ColorGray, $"{kv.Key}:");
-                    ImGui.SameLine();
-                    ImGui.TextColored(valColor, $"{kv.Value:N0}");
+                    DrawCurrencyRow(name, c.GetValueOrDefault(name));
                 }
                 ImGui.Unindent(8);
             }
         }
     }
 
-    private void DrawCurrencyRow(string name, long current, long cap,
-        bool enabled, long threshold, int step, Action<bool, long> onChanged)
+    private void DrawCurrencyRow(string name, long current)
     {
+        var tracking = _config.Notifications.GetCurrency(name);
+        var enabled = tracking.Enabled;
+
         if (ImGui.Checkbox($"##{name}Enable", ref enabled))
         {
-            onChanged(enabled, threshold);
+            tracking.Enabled = enabled;
             _config.Save();
         }
         ImGui.SameLine();
 
+        KnownCaps.TryGetValue(name, out var cap);
         var currentStr = cap > 0 ? $"{current:N0}/{cap:N0}" : $"{current:N0}";
         ImGui.Text(name);
         ImGui.SameLine();
@@ -443,12 +454,11 @@ public class ConfigWindow : Window, IDisposable
             ImGui.SameLine();
             ImGui.TextColored(ColorGray, "@");
             ImGui.SameLine();
-            ImGui.SetNextItemWidth(90);
-            var thresholdInt = (int)threshold;
-            if (ImGui.InputInt($"##{name}Threshold", ref thresholdInt, step))
+            ImGui.SetNextItemWidth(100);
+            var thresholdInt = (int)tracking.Threshold;
+            if (ImGui.InputInt($"##{name}Threshold", ref thresholdInt, 100))
             {
-                threshold = Math.Max(0, thresholdInt);
-                onChanged(enabled, threshold);
+                tracking.Threshold = Math.Max(0, thresholdInt);
                 _config.Save();
             }
         }
