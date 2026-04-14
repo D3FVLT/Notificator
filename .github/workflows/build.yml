@@ -36,7 +36,6 @@ jobs:
         id: version
         run: |
           RAW=${GITHUB_REF_NAME#v}
-          # Ensure 4-part version (e.g. 0.0.5 → 0.0.5.0)
           IFS='.' read -ra PARTS <<< "$RAW"
           while [ ${#PARTS[@]} -lt 4 ]; do PARTS+=("0"); done
           VERSION="${PARTS[0]}.${PARTS[1]}.${PARTS[2]}.${PARTS[3]}"
@@ -46,37 +45,29 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }} -p:AssemblyVersion=${{ steps.version.outputs.version }} -p:FileVersion=${{ steps.version.outputs.version }}
+        run: >-
+          dotnet build --configuration Release --no-restore
+          -p:Version=${{ steps.version.outputs.version }}
 
       - name: Prepare Release
         run: |
           mkdir -p release
-          cd ${{ env.PLUGIN_NAME }}/bin/Release
-          zip -r ../../../release/${{ env.PLUGIN_NAME }}.zip *.dll *.json
+          # DalamudPackager with MakeZip=true creates Notificator/latest.zip in output
+          cp ${{ env.PLUGIN_NAME }}/bin/Release/${{ env.PLUGIN_NAME }}/latest.zip release/${{ env.PLUGIN_NAME }}.zip
 
       - name: Generate pluginmaster.json
         run: |
-          cat > release/pluginmaster.json << 'EOF'
-          [
-            {
-              "Author": "D3FVLT",
-              "Name": "Notificator",
-              "Punchline": "Telegram notifications for FFXIV events",
-              "Description": "Send Telegram notifications for various in-game events like level ups, currency thresholds, duty completion, and more.",
-              "InternalName": "Notificator",
-              "AssemblyVersion": "${{ steps.version.outputs.version }}",
-              "RepoUrl": "https://github.com/${{ github.repository }}",
-              "ApplicableVersion": "any",
-              "Tags": ["notifications", "telegram", "alerts"],
-              "DalamudApiLevel": 14,
-              "IconUrl": "https://raw.githubusercontent.com/${{ github.repository }}/main/images/icon.png",
-              "DownloadLinkInstall": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
-              "DownloadLinkUpdate": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
-              "DownloadLinkTesting": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
-              "LastUpdate": "${{ github.run_number }}"
-            }
-          ]
-          EOF
+          # Read the DalamudPackager-generated manifest and wrap in array with download links
+          MANIFEST=$(cat ${{ env.PLUGIN_NAME }}/bin/Release/${{ env.PLUGIN_NAME }}/Notificator.json)
+          python3 -c "
+          import json, sys
+          m = json.loads(sys.argv[1])
+          m['DownloadLinkInstall'] = 'https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip'
+          m['DownloadLinkUpdate'] = 'https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip'
+          m['DownloadLinkTesting'] = 'https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip'
+          m['LastUpdate'] = '${{ github.run_number }}'
+          print(json.dumps([m], indent=2))
+          " "$MANIFEST" > release/pluginmaster.json
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

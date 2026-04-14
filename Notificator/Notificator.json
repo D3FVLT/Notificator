@@ -1,9 +1,0 @@
-{
-  "Author": "D3FVLT",
-  "Name": "Notificator",
-  "Punchline": "Telegram notifications for FFXIV events",
-  "Description": "Send Telegram notifications for various in-game events like level ups, currency thresholds, duty completion, and more.",
-  "RepoUrl": "https://github.com/D3FVLT/Notificator",
-  "Tags": ["notifications", "telegram", "alerts"],
-  "IconUrl": "https://raw.githubusercontent.com/D3FVLT/Notificator/main/images/icon.png"
-}
