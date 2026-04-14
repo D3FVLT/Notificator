@@ -1,7 +1,7 @@
 <Project Sdk="Dalamud.NET.Sdk/14.0.2">
 
   <PropertyGroup>
-    <Version>0.0.7.0</Version>
+    <Version>0.0.8.0</Version>
     <DalamudLibPath Condition="$(DALAMUD_HOME) != ''">$(DALAMUD_HOME)</DalamudLibPath>
     <OutputPath>bin\$(Configuration)</OutputPath>
     <NoWarn>CS8618;CS8625</NoWarn>
