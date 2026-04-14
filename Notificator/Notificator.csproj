@@ -1,48 +1,24 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Dalamud.NET.Sdk/14.0.2">
 
   <PropertyGroup>
-    <TargetFramework>net10.0-windows8.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
     <Version>1.0.0.0</Version>
-    <Authors>D3FVLT</Authors>
-    <Description>Telegram notification plugin for FFXIV events</Description>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>bin\$(Configuration)</OutputPath>
     <NoWarn>CS8618;CS8625</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup>
-    <DalamudLibPath>$(DALAMUD_HOME)\</DalamudLibPath>
+    <Author>D3FVLT</Author>
+    <Name>Notificator</Name>
+    <InternalName>Notificator</InternalName>
+    <Punchline>Telegram notifications for FFXIV events</Punchline>
+    <Description>Send Telegram notifications for various in-game events like level ups, currency thresholds, duty completion, and more.</Description>
+    <RepoUrl>https://github.com/D3FVLT/Notificator</RepoUrl>
+    <DalamudApiLevel>14</DalamudApiLevel>
+    <Tags>notifications;telegram;alerts</Tags>
+    <IconUrl>https://raw.githubusercontent.com/D3FVLT/Notificator/main/images/icon.png</IconUrl>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="DalamudPackager" Version="14.0.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="Dalamud">
-      <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Lumina">
-      <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Lumina.Excel">
-      <HintPath>$(DalamudLibPath)Lumina.Excel.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="FFXIVClientStructs">
-      <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>$(DalamudLibPath)Newtonsoft.Json.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-  </ItemGroup>
 
 </Project>
