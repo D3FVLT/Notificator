@@ -35,14 +35,18 @@ jobs:
       - name: Get version from tag
         id: version
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          RAW=${GITHUB_REF_NAME#v}
+          # Ensure 4-part version (e.g. 0.0.5 → 0.0.5.0)
+          IFS='.' read -ra PARTS <<< "$RAW"
+          while [ ${#PARTS[@]} -lt 4 ]; do PARTS+=("0"); done
+          VERSION="${PARTS[0]}.${PARTS[1]}.${PARTS[2]}.${PARTS[3]}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Restore
         run: dotnet restore
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }}
+        run: dotnet build --configuration Release --no-restore -p:Version=${{ steps.version.outputs.version }} -p:AssemblyVersion=${{ steps.version.outputs.version }} -p:FileVersion=${{ steps.version.outputs.version }}
 
       - name: Prepare Release
         run: |

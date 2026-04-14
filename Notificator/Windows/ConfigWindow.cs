@@ -57,6 +57,12 @@ public class ConfigWindow : Window, IDisposable
                 ImGui.EndTabItem();
             }
 
+            if (ImGui.BeginTabItem("Currencies"))
+            {
+                DrawCurrencyTab();
+                ImGui.EndTabItem();
+            }
+
             if (ImGui.BeginTabItem("Duties"))
             {
                 DrawDutyTab();
@@ -211,11 +217,6 @@ public class ConfigWindow : Window, IDisposable
 
         ImGui.Spacing();
 
-        // Currencies
-        DrawSection("Currencies", DrawCurrencies);
-
-        ImGui.Spacing();
-
         // Social & Other
         DrawSection("Social & Other", () =>
         {
@@ -347,6 +348,16 @@ public class ConfigWindow : Window, IDisposable
         }
     }
 
+    private void DrawCurrencyTab()
+    {
+        var height = ImGui.GetContentRegionAvail().Y;
+        if (ImGui.BeginChild("CurrencyScroll", new Vector2(-1, height), false))
+        {
+            DrawCurrencies();
+            ImGui.EndChild();
+        }
+    }
+
     private void DrawCurrencies()
     {
         var n = _config.Notifications;
@@ -378,21 +389,34 @@ public class ConfigWindow : Window, IDisposable
         DrawCurrencyRow("MGP", GetCur("MGP"), -1, n.OnMGPThreshold, n.MGPThreshold, 10000,
             (e, t) => { n.OnMGPThreshold = e; n.MGPThreshold = (int)t; });
 
-        // Show all other detected currencies (read-only)
+        // Show all other detected currencies grouped by category
         var shown = new HashSet<string> { "Gil", "Poetics", "Mathematics", "Mnemonics", "Company Seals", "MGP" };
-        var others = new List<KeyValuePair<string, long>>();
+        var categories = _tracker.CurrencyCategories;
+        var grouped = new SortedDictionary<string, List<KeyValuePair<string, long>>>();
+
         foreach (var kv in c)
         {
-            if (!shown.Contains(kv.Key)) others.Add(kv);
+            if (shown.Contains(kv.Key)) continue;
+            var cat = categories.TryGetValue(kv.Key, out var v) ? v : "Other";
+            if (!grouped.ContainsKey(cat))
+                grouped[cat] = new List<KeyValuePair<string, long>>();
+            grouped[cat].Add(kv);
         }
 
-        if (others.Count > 0)
+        foreach (var (category, items) in grouped)
         {
             ImGui.Spacing();
-            ImGui.TextColored(ColorBlue, "Detected Currencies");
-            foreach (var kv in others)
+            if (ImGui.CollapsingHeader($"{category} ({items.Count})"))
             {
-                ImGui.TextColored(ColorGray, $"  {kv.Key}: {kv.Value:N0}");
+                ImGui.Indent(8);
+                foreach (var kv in items)
+                {
+                    var valColor = kv.Value > 0 ? ColorWhite : ColorGray;
+                    ImGui.TextColored(ColorGray, $"{kv.Key}:");
+                    ImGui.SameLine();
+                    ImGui.TextColored(valColor, $"{kv.Value:N0}");
+                }
+                ImGui.Unindent(8);
             }
         }
     }

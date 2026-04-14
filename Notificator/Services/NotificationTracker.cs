@@ -35,6 +35,7 @@ public class NotificationTracker : IDisposable
 
     // All currency values exposed for UI, keyed by display name
     public Dictionary<string, long> CurrentCurrencies { get; } = new();
+    public Dictionary<string, string> CurrencyCategories { get; } = new();
     public short CurrentLevel { get; private set; }
     public string CurrentClassJob { get; private set; } = string.Empty;
     public string CurrentZone { get; private set; } = string.Empty;
@@ -314,38 +315,75 @@ public class NotificationTracker : IDisposable
         }
     }
 
-    private static readonly Dictionary<string, string> CurrencyNameMap = new()
+    private record CurrencyDef(string DisplayName, string Category);
+
+    private static readonly Dictionary<string, CurrencyDef> CurrencyNameMap = new()
     {
         // Scrips
-        { "white crafters' scrip", "White Crafters' Scrip" },
-        { "white gatherers' scrip", "White Gatherers' Scrip" },
-        { "purple crafters' scrip", "Purple Crafters' Scrip" },
-        { "purple gatherers' scrip", "Purple Gatherers' Scrip" },
-        { "orange crafters' scrip", "Orange Crafters' Scrip" },
-        { "orange gatherers' scrip", "Orange Gatherers' Scrip" },
-        // PvP
-        { "wolf mark", "Wolf Marks" },
-        { "trophy crystal", "Trophy Crystals" },
+        { "white crafters' scrip", new("White Crafters' Scrip", "Scrips") },
+        { "white gatherers' scrip", new("White Gatherers' Scrip", "Scrips") },
+        { "purple crafters' scrip", new("Purple Crafters' Scrip", "Scrips") },
+        { "purple gatherers' scrip", new("Purple Gatherers' Scrip", "Scrips") },
+        { "orange crafters' scrip", new("Orange Crafters' Scrip", "Scrips") },
+        { "orange gatherers' scrip", new("Orange Gatherers' Scrip", "Scrips") },
+        { "skybuilders' scrip", new("Skybuilders' Scrip", "Scrips") },
         // Hunt
-        { "allied seal", "Allied Seals" },
-        { "centurio seal", "Centurio Seals" },
-        { "sack of nuts", "Sack of Nuts" },
-        // Exploration
-        { "bicolor gemstone", "Bicolor Gemstones" },
-        { "skybuilders' scrip", "Skybuilders' Scrip" },
-        // Occult Crescent
-        { "enlightenment silver", "Enlightenment Silver Pieces" },
-        { "enlightenment gold", "Enlightenment Gold Pieces" },
-        // Eureka/Bozja
-        { "bozjan cluster", "Bozjan Clusters" },
+        { "allied seal", new("Allied Seals", "Hunt") },
+        { "centurio seal", new("Centurio Seals", "Hunt") },
+        { "sack of nuts", new("Sack of Nuts", "Hunt") },
+        { "bicolor gemstone", new("Bicolor Gemstones", "Hunt") },
+        // PvP
+        { "wolf mark", new("Wolf Marks", "PvP") },
+        { "trophy crystal", new("Trophy Crystals", "PvP") },
+        // Beast Tribes (ARR)
+        { "ixali oaknot", new("Ixali Oaknot", "Beast Tribes") },
+        { "sylphic goldleaf", new("Sylphic Goldleaf", "Beast Tribes") },
+        { "steel amalj'ok", new("Steel Amalj'ok", "Beast Tribes") },
+        { "rainbowtide psashp", new("Rainbowtide Psashp", "Beast Tribes") },
+        { "titan cobaltpiece", new("Titan Cobaltpiece", "Beast Tribes") },
+        // Beast Tribes (HW)
+        { "vanu whitebone", new("Vanu Whitebone", "Beast Tribes") },
+        { "black copper gil", new("Black Copper Gil", "Beast Tribes") },
+        { "carved kupo nut", new("Carved Kupo Nut", "Beast Tribes") },
+        // Beast Tribes (SB)
+        { "kojin sango", new("Kojin Sango", "Beast Tribes") },
+        { "ananta dreamstaff", new("Ananta Dreamstaff", "Beast Tribes") },
+        { "namazu koban", new("Namazu Koban", "Beast Tribes") },
+        // Beast Tribes (ShB)
+        { "fae fancy", new("Fae Fancy", "Beast Tribes") },
+        { "qitari compliment", new("Qitari Compliment", "Beast Tribes") },
+        { "hammered frogment", new("Hammered Frogment", "Beast Tribes") },
+        // Beast Tribes (EW)
+        { "arkasodara pana", new("Arkasodara Pana", "Beast Tribes") },
+        { "omicron omnitoken", new("Omicron Omnitoken", "Beast Tribes") },
+        { "loporrit carat", new("Loporrit Carat", "Beast Tribes") },
+        // Beast Tribes (DT)
+        { "pelu pelplume", new("Pelu Pelplume", "Beast Tribes") },
+        { "yok huy ward", new("Yok Huy Ward", "Beast Tribes") },
+        { "mamool ja nanook", new("Mamool Ja Nanook", "Beast Tribes") },
+        // Field Operations
+        { "bozjan cluster", new("Bozjan Clusters", "Field Operations") },
+        { "enlightenment silver", new("Enlightenment Silver Pieces", "Field Operations") },
+        { "enlightenment gold", new("Enlightenment Gold Pieces", "Field Operations") },
         // Island Sanctuary
-        { "seafarer's cowrie", "Seafarer's Cowrie" },
-        { "islander's cowrie", "Islander's Cowrie" },
-        // Other notable
-        { "venture", "Ventures" },
-        { "faux leaf", "Faux Leaves" },
-        { "mgf", "MGF" },
-        { "felicitous token", "Felicitous Tokens" },
+        { "seafarer's cowrie", new("Seafarer's Cowrie", "Island Sanctuary") },
+        { "islander's cowrie", new("Islander's Cowrie", "Island Sanctuary") },
+        // Content
+        { "faux leaf", new("Faux Leaves", "Content") },
+        { "mgf", new("MGF", "Content") },
+        { "sil'dihn silver", new("Sil'dihn Silver", "Content") },
+        { "shishu coin", new("Shishu Coin", "Content") },
+        { "aloalo coin", new("Aloalo Coin", "Content") },
+        { "felicitous token", new("Felicitous Tokens", "Content") },
+        { "cosmocredit", new("Cosmocredit", "Content") },
+        { "lunar credit", new("Lunar Credit", "Content") },
+        { "phaenna credit", new("Phaenna Credit", "Content") },
+        { "oizys credit", new("Oizys Credit", "Content") },
+        { "oizys dronebit", new("Oizys Dronebit", "Content") },
+        { "corvosi manuscript", new("Corvosi Manuscript", "Content") },
+        // Other
+        { "venture", new("Ventures", "Other") },
+        { "achievement certificate", new("Achievement Certificates", "Other") },
     };
 
     private string? ResolveCurrencyDisplayName(uint itemId,
@@ -366,13 +404,17 @@ public class NotificationTracker : IDisposable
                 return null;
         }
 
-        foreach (var (fragment, displayName) in CurrencyNameMap)
+        foreach (var (fragment, def) in CurrencyNameMap)
         {
             if (lower.Contains(fragment))
-                return displayName;
+            {
+                CurrencyCategories[def.DisplayName] = def.Category;
+                return def.DisplayName;
+            }
         }
 
-        // Show unmapped currencies with their raw name
+        // Unmapped currencies go to "Other"
+        CurrencyCategories[rawName] = "Other";
         return rawName;
     }
 
