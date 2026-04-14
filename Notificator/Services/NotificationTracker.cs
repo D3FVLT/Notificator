@@ -27,9 +27,11 @@ public class NotificationTracker : IDisposable
     private readonly Dictionary<uint, long> _lastCurrencyValues = new();
     private bool _wasInCombat;
 
-    private const uint PoeticsSpecialId = 28;
-    private const uint MathematicsSpecialId = 50;
-    private const uint MnemonicsSpecialId = 51;
+    // Tomestone item IDs change with patches; we resolve them dynamically from TomestonesItem sheet
+    private uint _poeticsItemId;
+    private uint _mathematicsItemId;
+    private uint _mnemonicsItemId;
+    private uint _mgpItemId;
 
     // Current values exposed for UI
     public long CurrentGil { get; private set; }
@@ -64,8 +66,48 @@ public class NotificationTracker : IDisposable
         _dataManager = dataManager;
         _chatGui = chatGui;
 
+        ResolveCurrencyIds();
         SubscribeToEvents();
         InitializeTracking();
+    }
+
+    private void ResolveCurrencyIds()
+    {
+        // Scan SpecialItemBucket to find currency item IDs by matching names
+        // We do this once to avoid hardcoding IDs that change between patches
+        _poeticsItemId = 0;
+        _mathematicsItemId = 0;
+        _mnemonicsItemId = 0;
+        _mgpItemId = 0;
+
+        try
+        {
+            var itemSheet = _dataManager.GetExcelSheet<Lumina.Excel.Sheets.Item>();
+            if (itemSheet == null) return;
+
+            unsafe
+            {
+                var cm = CurrencyManager.Instance();
+                if (cm == null) return;
+
+                foreach (var (itemId, _) in cm->SpecialItemBucket)
+                {
+                    var item = itemSheet.GetRow(itemId);
+                    var name = item.Name.ToString().ToLowerInvariant();
+                    
+                    if (name.Contains("poetics")) _poeticsItemId = itemId;
+                    else if (name.Contains("mathematics")) _mathematicsItemId = itemId;
+                    else if (name.Contains("mnemonics")) _mnemonicsItemId = itemId;
+                    else if (name.Contains("gold saucer") || name.Contains("mgp")) _mgpItemId = itemId;
+                }
+            }
+            
+            _log.Debug($"Currency IDs resolved: Poetics={_poeticsItemId}, Math={_mathematicsItemId}, Mnem={_mnemonicsItemId}, MGP={_mgpItemId}");
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"Failed to resolve currency IDs: {ex.Message}");
+        }
     }
 
     private void InitializeTracking()
@@ -212,14 +254,16 @@ public class NotificationTracker : IDisposable
         var currencyManager = CurrencyManager.Instance();
         if (currencyManager == null) return;
 
+        if (_poeticsItemId == 0) ResolveCurrencyIds();
+        
         CurrentGil = GetCurrencyAmount(1);
-        CurrentPoetics = GetSpecialCurrencyAmount(PoeticsSpecialId);
-        CurrentMathematics = GetSpecialCurrencyAmount(MathematicsSpecialId);
-        CurrentMnemonics = GetSpecialCurrencyAmount(MnemonicsSpecialId);
-        CurrentMGP = GetSpecialCurrencyAmount(29);
+        CurrentPoetics = _poeticsItemId > 0 ? GetCurrencyByItemId(_poeticsItemId) : 0;
+        CurrentMathematics = _mathematicsItemId > 0 ? GetCurrencyByItemId(_mathematicsItemId) : 0;
+        CurrentMnemonics = _mnemonicsItemId > 0 ? GetCurrencyByItemId(_mnemonicsItemId) : 0;
+        CurrentMGP = _mgpItemId > 0 ? GetCurrencyByItemId(_mgpItemId) : GetCurrencyAmount(29);
 
         var gcId = GetGrandCompanySealId();
-        if (gcId > 0) CurrentCompanySeals = GetSpecialCurrencyAmount(gcId);
+        if (gcId > 0) CurrentCompanySeals = GetCurrencyByItemId(gcId);
 
         if (_config.Notifications.OnGilThreshold)
         {
@@ -230,27 +274,27 @@ public class NotificationTracker : IDisposable
             }
         }
 
-        if (_config.Notifications.OnPoeticsThreshold)
+        if (_config.Notifications.OnPoeticsThreshold && _poeticsItemId > 0)
         {
-            if (ShouldNotifyThreshold(PoeticsSpecialId, CurrentPoetics, _config.Notifications.PoeticsThreshold))
+            if (ShouldNotifyThreshold(_poeticsItemId, CurrentPoetics, _config.Notifications.PoeticsThreshold))
             {
                 _config.AddLog($"Poetics threshold: {CurrentPoetics:N0}");
                 _ = _telegram.SendMessageAsync($"📀 <b>Poetics Threshold!</b>\nCurrent: {CurrentPoetics:N0}/2000");
             }
         }
 
-        if (_config.Notifications.OnMathematicsThreshold)
+        if (_config.Notifications.OnMathematicsThreshold && _mathematicsItemId > 0)
         {
-            if (ShouldNotifyThreshold(MathematicsSpecialId, CurrentMathematics, _config.Notifications.MathematicsThreshold))
+            if (ShouldNotifyThreshold(_mathematicsItemId, CurrentMathematics, _config.Notifications.MathematicsThreshold))
             {
                 _config.AddLog($"Mathematics threshold: {CurrentMathematics:N0}");
                 _ = _telegram.SendMessageAsync($"📀 <b>Mathematics Threshold!</b>\nCurrent: {CurrentMathematics:N0}");
             }
         }
 
-        if (_config.Notifications.OnMnemonicsThreshold)
+        if (_config.Notifications.OnMnemonicsThreshold && _mnemonicsItemId > 0)
         {
-            if (ShouldNotifyThreshold(MnemonicsSpecialId, CurrentMnemonics, _config.Notifications.MnemonicsThreshold))
+            if (ShouldNotifyThreshold(_mnemonicsItemId, CurrentMnemonics, _config.Notifications.MnemonicsThreshold))
             {
                 _config.AddLog($"Mnemonics threshold: {CurrentMnemonics:N0}");
                 _ = _telegram.SendMessageAsync($"📀 <b>Mnemonics Threshold!</b>\nCurrent: {CurrentMnemonics:N0}/2000");
@@ -268,7 +312,8 @@ public class NotificationTracker : IDisposable
 
         if (_config.Notifications.OnMGPThreshold)
         {
-            if (ShouldNotifyThreshold(10029, CurrentMGP, _config.Notifications.MGPThreshold))
+            var mgpKey = _mgpItemId > 0 ? _mgpItemId : 29u;
+            if (ShouldNotifyThreshold(mgpKey, CurrentMGP, _config.Notifications.MGPThreshold))
             {
                 _config.AddLog($"MGP threshold: {CurrentMGP:N0}");
                 _ = _telegram.SendMessageAsync($"🎰 <b>MGP Threshold Reached!</b>\nCurrent: {CurrentMGP:N0}");
@@ -311,27 +356,41 @@ public class NotificationTracker : IDisposable
         return inventoryManager->GetInventoryItemCount(itemId);
     }
 
-    private unsafe long GetSpecialCurrencyAmount(uint specialId)
+    private unsafe long GetCurrencyByItemId(uint targetItemId)
     {
         var currencyManager = CurrencyManager.Instance();
         if (currencyManager == null) return 0;
 
         foreach (var (itemId, item) in currencyManager->SpecialItemBucket)
         {
-            if (item.SpecialId == specialId)
+            if (itemId == targetItemId)
                 return item.Count;
         }
+
+        foreach (var (itemId, item) in currencyManager->ItemBucket)
+        {
+            if (itemId == targetItemId)
+                return item.Count;
+        }
+
+        foreach (var (itemId, item) in currencyManager->ContentItemBucket)
+        {
+            if (itemId == targetItemId)
+                return item.Count;
+        }
+
         return 0;
     }
 
     private uint GetGrandCompanySealId()
     {
         if (!_playerState.GrandCompany.IsValid) return 0;
+        // Storm/Serpent/Flame Seals item IDs
         return _playerState.GrandCompany.RowId switch
         {
-            1 => 20,
-            2 => 21,
-            3 => 22,
+            1 => 20,  // Storm Seals
+            2 => 21,  // Serpent Seals
+            3 => 22,  // Flame Seals
             _ => 0
         };
     }
@@ -339,14 +398,15 @@ public class NotificationTracker : IDisposable
     private void UpdateCurrencySnapshot()
     {
         _lastCurrencyValues[1] = CurrentGil;
-        _lastCurrencyValues[PoeticsSpecialId] = CurrentPoetics;
-        _lastCurrencyValues[MathematicsSpecialId] = CurrentMathematics;
-        _lastCurrencyValues[MnemonicsSpecialId] = CurrentMnemonics;
+        if (_poeticsItemId > 0) _lastCurrencyValues[_poeticsItemId] = CurrentPoetics;
+        if (_mathematicsItemId > 0) _lastCurrencyValues[_mathematicsItemId] = CurrentMathematics;
+        if (_mnemonicsItemId > 0) _lastCurrencyValues[_mnemonicsItemId] = CurrentMnemonics;
         
         var gcId = GetGrandCompanySealId();
         if (gcId > 0) _lastCurrencyValues[gcId] = CurrentCompanySeals;
         
-        _lastCurrencyValues[10029] = CurrentMGP;
+        var mgpKey = _mgpItemId > 0 ? _mgpItemId : 29u;
+        _lastCurrencyValues[mgpKey] = CurrentMGP;
     }
 
     public void CheckCommendations()
