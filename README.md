@@ -1,118 +1,70 @@
-# Notificator - FFXIV Telegram Notification Plugin
+# Notificator
 
-Dalamud plugin for sending Telegram notifications about various in-game events in Final Fantasy XIV.
+Dalamud plugin that sends Telegram notifications for in-game events in Final Fantasy XIV. Useful when you're AFK in queue, crafting, or just want to keep track of what's happening while away from the screen.
 
 ## Installation
 
-1. Open Dalamud settings: `/xlsettings`
-2. Go to **Experimental** tab
-3. Paste this URL in **Custom Plugin Repositories**:
+1. In-game: `/xlsettings` → **Experimental** tab
+2. Add custom repository URL:
    ```
    https://raw.githubusercontent.com/D3FVLT/Notificator/main/pluginmaster.json
    ```
-4. Click **+** to add, then **Save**
-5. Open Plugin Installer (`/xlplugins`) and search for "Notificator"
+3. Save, then `/xlplugins` → search **Notificator** → Install
+4. Open settings: `/notificator` or `/noti`
 
-## Features
+## Setup
 
-### Level & Experience
-- **Level Up** — Get notified when you level up (with optional minimum level threshold)
-- **Class/Job Change** — Notifications when switching classes
+1. Create a Telegram bot via [@BotFather](https://t.me/BotFather) → `/newbot`
+2. Copy the bot token
+3. Open plugin settings → paste the token
+4. Send `/start` to your bot in Telegram
+5. Click **Auto-detect Chat ID** in the plugin — it will find your chat automatically
+6. Hit **Test Connection** to verify
 
-### Currency Tracking
-- **Gil** — Notify when reaching a gil threshold
-- **Tomestones** — Track Poetics, Heliometry, etc.
-- **Company Seals** — Grand Company seal thresholds
-- **MGP** — Manderville Gold Saucer Points
+## What it tracks
 
-### Duty Events
-- **Duty Pop** — Perfect for AFK queue notifications
-- **Duty Start** — When a duty begins
-- **Duty Complete** — Successful duty completion
-- **Party Wipe** — When everyone dies
+### Duties
+- **Duty Pop** — queue popped, time to accept (great for AFK queues)
+- **Duty Start / Complete / Wipe** — instance lifecycle
 
-### Other Notifications
-- **Login/Logout** — Session tracking
-- **Zone Change** — Territory transitions
-- **Death** — When your character dies
-- **Commendations** — Received player commendations
-- **Grand Company Rank Up** — GC promotions
+### Currencies
+Threshold-based notifications for 40+ currencies organized by category:
+- **Primary** — Gil, Tomestones (Poetics, Mathematics, Mnemonics), Company Seals, MGP
+- **Scrips** — White/Purple Crafters' & Gatherers' Scrips
+- **Hunt** — Centurio Seals, Sacks of Nuts, Bicolor Gemstones
+- **PvP** — Wolf Marks, Trophy Crystals
+- **Beast Tribes, Field Operations, Island Sanctuary, Content currencies** and more
 
-## Installation
+Set a threshold → get a notification when you hit it.
 
-### Prerequisites
-- XIVLauncher with Dalamud
-- A Telegram Bot (created via [@BotFather](https://t.me/BotFather))
+### Combat & World
+- **Death** — your character died
+- **Zone Change** — moved to a new area
+- **Class/Job Change** — switched jobs
+- **Commendations** — someone commended you
+- **GC Rank Up** — Grand Company promotion
 
-### Setting Up Telegram Bot
-1. Message [@BotFather](https://t.me/BotFather) on Telegram
-2. Send `/newbot` and follow the instructions
-3. Copy the bot token (looks like `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`)
-4. Get your Chat ID:
-   - Message [@userinfobot](https://t.me/userinfobot) to get your user ID
-   - Or for group chats, add your bot to the group and use the Telegram API
+### Social
+- **Private Messages (Tells)** — someone whispered you while you were away
 
-## Usage
+### Level
+- **Level Up** — with optional minimum level filter (e.g. only notify at 90+)
 
-1. Open settings with `/notificator` or `/noti`
-2. Enter your Telegram Bot Token and Chat ID
-3. Click "Test Connection" to verify
-4. Enable desired notifications in each tab
-5. Configure thresholds as needed
+## Proxy Support
 
-## Available Dalamud Services Used
+If Telegram is blocked in your region, the plugin has built-in SOCKS5/HTTP proxy support. Configure it in the **Setup** tab — address, port, and protocol type. The proxy is used only for Telegram API calls, not for game traffic.
 
-| Service | Purpose |
-|---------|---------|
-| `IPlayerState` | Player level, commendations, GC rank, stats |
-| `IClientState` | Login state, territory, class changes |
-| `IDutyState` | Duty start/complete/wipe events |
-| `IGameInventory` | Currency and item tracking |
-| `ICondition` | Combat state, death detection |
-| `IDataManager` | Excel sheets for names |
+If you also need Dalamud itself to work through a proxy (for plugin updates), set `HTTP_PROXY` and `HTTPS_PROXY` environment variables before launching the game.
 
-## Trackable Parameters Reference
+## Building from source
 
-### IPlayerState Properties
-- `Level` — Current job level
-- `EffectiveLevel` — Level with sync
-- `GetClassJobLevel(ClassJob)` — Any job's level
-- `GetClassJobExperience(ClassJob)` — XP for any job
-- `PlayerCommendations` — Total commendations
-- `GetGrandCompanyRank(GrandCompany)` — GC rank
-- `BaseRestedExperience` — Rested XP amount
-- `IsMentor`, `IsTradeMentor`, `IsBattleMentor` — Mentor status
-- `CharacterName`, `CurrentWorld`, `HomeWorld` — Character info
+```
+dotnet restore
+dotnet build --configuration Release
+```
 
-### IClientState Events
-- `LevelChanged` — Level up events
-- `ClassJobChanged` — Job switch
-- `TerritoryChanged` — Zone changes
-- `CfPop` — Duty Finder queue pop
-- `Login` / `Logout` — Session events
-
-### IDutyState Events
-- `DutyStarted` — Duty begins
-- `DutyCompleted` — Duty finished
-- `DutyWiped` — Party wipe
-- `DutyRecommenced` — Restart after wipe
-
-### Currency IDs (FFXIVClientStructs)
-- Gil: Item ID 1
-- Tomestone of Poetics: Special ID 28
-- Tomestone of Heliometry: Special ID 46
-- Company Seals: Special IDs 20/21/22 (by GC)
-- MGP: Special ID 29
-
-## Contributing
-
-Pull requests welcome! Please ensure your code follows the existing style.
+Requires [Dalamud SDK](https://github.com/goatcorp/Dalamud) dev environment.
 
 ## License
 
-AGPL-3.0 (required for Dalamud plugins)
-
-## Credits
-
-- [Dalamud](https://github.com/goatcorp/Dalamud) — Plugin framework
-- [FFXIVClientStructs](https://github.com/aers/FFXIVClientStructs) — Game structure definitions
+AGPL-3.0
