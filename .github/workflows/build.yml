@@ -9,6 +9,7 @@ on:
 
 env:
   PLUGIN_NAME: Notificator
+  DALAMUD_HOME: /tmp/dalamud
 
 jobs:
   build:
@@ -21,17 +22,19 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 8.0.x
 
       - name: Download Dalamud
         run: |
-          wget https://goatcorp.github.io/dalamud-distrib/latest.zip -O dalamud.zip
-          unzip dalamud.zip -d dalamud
+          mkdir -p $DALAMUD_HOME
+          curl -L https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -o dalamud.zip
+          unzip dalamud.zip -d $DALAMUD_HOME
+
+      - name: Restore
+        run: dotnet restore
 
       - name: Build
-        run: |
-          dotnet build --configuration Release \
-            -p:DalamudLibPath=${{ github.workspace }}/dalamud/
+        run: dotnet build --configuration Release --no-restore
 
       - name: Prepare Release
         run: |
@@ -61,7 +64,7 @@ jobs:
               "RepoUrl": "https://github.com/${{ github.repository }}",
               "ApplicableVersion": "any",
               "Tags": ["notifications", "telegram", "alerts"],
-              "DalamudApiLevel": 14,
+              "DalamudApiLevel": 11,
               "IconUrl": "https://raw.githubusercontent.com/${{ github.repository }}/main/images/icon.png",
               "DownloadLinkInstall": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",
               "DownloadLinkUpdate": "https://github.com/${{ github.repository }}/releases/latest/download/Notificator.zip",

@@ -1,5 +1,4 @@
 using System;
-using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -33,7 +32,6 @@ public sealed class Plugin : IDalamudPlugin
         IPlayerState playerState,
         IDutyState dutyState,
         ICondition condition,
-        IGameInventory gameInventory,
         IDataManager dataManager)
     {
         PluginInterface = pluginInterface;
@@ -45,7 +43,7 @@ public sealed class Plugin : IDalamudPlugin
         _telegram = new TelegramService(_config, log);
         _tracker = new NotificationTracker(
             _config, _telegram, log, clientState, playerState, 
-            dutyState, condition, gameInventory, dataManager);
+            dutyState, condition, dataManager);
 
         _windowSystem = new WindowSystem("Notificator");
         _configWindow = new ConfigWindow(_config, _telegram);
@@ -89,6 +87,7 @@ public sealed class Plugin : IDalamudPlugin
         _tracker.CheckCommendations();
         _tracker.CheckGCRank();
         _tracker.CheckDeath();
+        _tracker.CheckCurrencyThresholds();
     }
 
     public void Dispose()

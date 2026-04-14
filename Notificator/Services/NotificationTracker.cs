@@ -16,7 +16,6 @@ public class NotificationTracker : IDisposable
     private readonly IPlayerState _playerState;
     private readonly IDutyState _dutyState;
     private readonly ICondition _condition;
-    private readonly IGameInventory _gameInventory;
     private readonly IDataManager _dataManager;
 
     private short _lastLevel;
@@ -33,7 +32,6 @@ public class NotificationTracker : IDisposable
         IPlayerState playerState,
         IDutyState dutyState,
         ICondition condition,
-        IGameInventory gameInventory,
         IDataManager dataManager)
     {
         _config = config;
@@ -43,7 +41,6 @@ public class NotificationTracker : IDisposable
         _playerState = playerState;
         _dutyState = dutyState;
         _condition = condition;
-        _gameInventory = gameInventory;
         _dataManager = dataManager;
 
         SubscribeToEvents();
@@ -76,8 +73,6 @@ public class NotificationTracker : IDisposable
         _dutyState.DutyStarted += OnDutyStarted;
         _dutyState.DutyCompleted += OnDutyCompleted;
         _dutyState.DutyWiped += OnDutyWiped;
-
-        _gameInventory.InventoryChanged += OnInventoryChanged;
     }
 
     private void UnsubscribeFromEvents()
@@ -92,8 +87,6 @@ public class NotificationTracker : IDisposable
         _dutyState.DutyStarted -= OnDutyStarted;
         _dutyState.DutyCompleted -= OnDutyCompleted;
         _dutyState.DutyWiped -= OnDutyWiped;
-
-        _gameInventory.InventoryChanged -= OnInventoryChanged;
     }
 
     private void OnLogin(object? sender, EventArgs e)
@@ -181,11 +174,6 @@ public class NotificationTracker : IDisposable
         if (!_config.Notifications.OnDutyWipe) return;
 
         _ = _telegram.SendMessageAsync($"💀 <b>Party Wiped!</b>");
-    }
-
-    private void OnInventoryChanged(GameInventoryEvent eventType, InventoryEventArgs args)
-    {
-        CheckCurrencyThresholds();
     }
 
     public unsafe void CheckCurrencyThresholds()
