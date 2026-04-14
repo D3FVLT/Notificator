@@ -8,7 +8,7 @@ Dalamud plugin for sending Telegram notifications about various in-game events i
 2. Go to **Experimental** tab
 3. Paste this URL in **Custom Plugin Repositories**:
    ```
-   https://raw.githubusercontent.com/YOURUSERNAME/Notificator/main/pluginmaster.json
+   https://raw.githubusercontent.com/D3FVLT/Notificator/main/pluginmaster.json
    ```
 4. Click **+** to add, then **Save**
 5. Open Plugin Installer (`/xlplugins`) and search for "Notificator"
