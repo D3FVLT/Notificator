@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Dalamud.Game.Chat;
 using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.DutyState;
 using Dalamud.Game.Text;
-using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
@@ -140,14 +141,14 @@ public class NotificationTracker : IDisposable
         _chatGui.ChatMessage -= OnChatMessage;
     }
 
-    private void OnChatMessage(XivChatType type, int timestamp, ref SeString sender, ref SeString message, ref bool isHandled)
+    private void OnChatMessage(IHandleableChatMessage message)
     {
         if (!_config.Notifications.OnPrivateMessage) return;
-        
-        if (type == XivChatType.TellIncoming)
+
+        if (message.LogKind == XivChatType.TellIncoming)
         {
-            var senderName = sender.TextValue;
-            var messageText = message.TextValue;
+            var senderName = message.Sender.TextValue;
+            var messageText = message.Message.TextValue;
             _config.AddLog($"Tell from {senderName}");
             _ = _telegram.SendMessageAsync($"📩 <b>Private Message</b>\nFrom: {senderName}\n\n{messageText}");
         }
@@ -204,27 +205,27 @@ public class NotificationTracker : IDisposable
         _ = _telegram.SendMessageAsync($"🔔 <b>Duty Ready!</b>\n{dutyName}\n⏰ Queue popped!");
     }
 
-    private void OnDutyStarted(object? sender, ushort territoryId)
+    private void OnDutyStarted(IDutyStateEventArgs args)
     {
         if (!_config.Notifications.OnDutyStart) return;
 
-        var territory = _dataManager.GetExcelSheet<TerritoryType>()?.GetRow(territoryId);
-        var dutyName = territory?.ContentFinderCondition.ValueNullable?.Name.ToString() ?? $"Duty {territoryId}";
+        var dutyName = args.ContentFinderCondition.ValueNullable?.Name.ToString()
+                        ?? $"Duty {args.TerritoryType.RowId}";
         _config.AddLog($"Duty start: {dutyName}");
         _ = _telegram.SendMessageAsync($"⚔️ <b>Duty Started</b>\n{dutyName}");
     }
 
-    private void OnDutyCompleted(object? sender, ushort territoryId)
+    private void OnDutyCompleted(IDutyStateEventArgs args)
     {
         if (!_config.Notifications.OnDutyComplete) return;
 
-        var territory = _dataManager.GetExcelSheet<TerritoryType>()?.GetRow(territoryId);
-        var dutyName = territory?.ContentFinderCondition.ValueNullable?.Name.ToString() ?? $"Duty {territoryId}";
+        var dutyName = args.ContentFinderCondition.ValueNullable?.Name.ToString()
+                        ?? $"Duty {args.TerritoryType.RowId}";
         _config.AddLog($"Duty complete: {dutyName}");
         _ = _telegram.SendMessageAsync($"✅ <b>Duty Completed!</b>\n{dutyName}");
     }
 
-    private void OnDutyWiped(object? sender, ushort territoryId)
+    private void OnDutyWiped(IDutyStateEventArgs args)
     {
         if (!_config.Notifications.OnDutyWipe) return;
 

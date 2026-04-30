@@ -5,15 +5,15 @@
     "Punchline": "Telegram notifications for FFXIV events",
     "Description": "Send Telegram notifications for various in-game events like level ups, currency thresholds, duty completion, and more.",
     "InternalName": "Notificator",
-    "AssemblyVersion": "0.0.8.0",
+    "AssemblyVersion": "0.1.0.0",
     "RepoUrl": "https://github.com/D3FVLT/Notificator",
     "ApplicableVersion": "any",
     "Tags": ["notifications", "telegram", "alerts"],
-    "DalamudApiLevel": 14,
+    "DalamudApiLevel": 15,
     "IconUrl": "https://raw.githubusercontent.com/D3FVLT/Notificator/main/images/icon.png",
     "DownloadLinkInstall": "https://github.com/D3FVLT/Notificator/releases/latest/download/Notificator.zip",
     "DownloadLinkUpdate": "https://github.com/D3FVLT/Notificator/releases/latest/download/Notificator.zip",
     "DownloadLinkTesting": "https://github.com/D3FVLT/Notificator/releases/latest/download/Notificator.zip",
-    "LastUpdate": "1744621440"
+    "LastUpdate": "1746090120"
   }
 ]

@@ -1,7 +1,7 @@
-<Project Sdk="Dalamud.NET.Sdk/14.0.2">
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
 
   <PropertyGroup>
-    <Version>0.0.8.0</Version>
+    <Version>0.1.0.0</Version>
     <DalamudLibPath Condition="$(DALAMUD_HOME) != ''">$(DALAMUD_HOME)</DalamudLibPath>
     <OutputPath>bin\$(Configuration)</OutputPath>
     <NoWarn>CS8618;CS8625</NoWarn>
@@ -15,7 +15,7 @@
     <Punchline>Telegram notifications for FFXIV events</Punchline>
     <Description>Send Telegram notifications for various in-game events like level ups, currency thresholds, duty completion, and more.</Description>
     <RepoUrl>https://github.com/D3FVLT/Notificator</RepoUrl>
-    <DalamudApiLevel>14</DalamudApiLevel>
+    <DalamudApiLevel>15</DalamudApiLevel>
     <Tags>notifications;telegram;alerts</Tags>
     <IconUrl>https://raw.githubusercontent.com/D3FVLT/Notificator/main/images/icon.png</IconUrl>
   </PropertyGroup>
