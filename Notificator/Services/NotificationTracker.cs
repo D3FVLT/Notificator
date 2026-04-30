@@ -185,11 +185,11 @@ public class NotificationTracker : IDisposable
         _ = _telegram.SendMessageAsync($"🔄 <b>Class Changed</b>\nNow playing: {CurrentClassJob} (Lv. {CurrentLevel})");
     }
 
-    private void OnTerritoryChanged(ushort territoryId)
+    private void OnTerritoryChanged(uint territoryId)
     {
         var territory = _dataManager.GetExcelSheet<TerritoryType>()?.GetRow(territoryId);
         CurrentZone = territory?.PlaceName.ValueNullable?.Name.ToString() ?? $"Zone {territoryId}";
-        
+
         if (!_config.Notifications.OnZoneChange) return;
 
         _config.AddLog($"Zone: {CurrentZone}");
